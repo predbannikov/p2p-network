@@ -1,0 +1,33 @@
+{
+  "configurations": {
+    "Vim - run a test": {
+      "adapter": "vscode-cpptools",
+      "configuration": {
+        "type":    "cppdbg",
+        "request": "launch",
+        "program": "${workspaceRoot}/p2p-network",
+        "args": [
+          "-f",
+          "-u", "unix.vim",
+          "-U", "NONE",
+          "--noplugin",
+          "--not-a-term",
+          "-S", "runtest.vim",
+          "${Test}.vim"
+        ],
+        "cwd": "${workspaceRoot}/",
+        "environment": [
+          { "name": "VIMRUNTIME", "value": "${workspaceRoot}/" }
+        ],
+        "MIDebuggerPath": "/usr/bin/gdb",
+        "externalConsole": true,
+        "stopAtEntry": true,
+        "MIMode": "gdb",
+        "logging": {
+          "engineLogging": false
+        }
+      }
+    }
+  }
+}
+
