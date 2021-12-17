@@ -1,6 +1,6 @@
 {
   "configurations": {
-    "Vim - run a test": {
+      "Vim - run a test": {
       "adapter": "vscode-cpptools",
       "configuration": {
         "type":    "cppdbg",
