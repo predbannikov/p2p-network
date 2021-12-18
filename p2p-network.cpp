@@ -69,13 +69,13 @@ void added_new_machine(std::string ip_str) {
  
 int main(int argc, char *argv[]) {
 
+    std::cout << "start programm" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     std::string my_ip = get_string_myip();
     added_new_machine(my_ip);
 
     if(my_ip == SIGNAL_SERVER) {
 
-        std::cout << "Path: " << argv[0] << std::endl;
         boost::asio::io_service service;
         boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), 2001);
         boost::asio::ip::tcp::acceptor acc(service, ep);
@@ -87,7 +87,20 @@ int main(int argc, char *argv[]) {
         }
 
     } else {
-
+        boost::asio::ip_service service;
+        boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), 2021);
+        boost::asio::ip::tcp::acceptor acc(service, ep);
+        while(true) {
+            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
+            boost::asio::ip::tcp:endpoint ep_server(boost::asio::ip::tcp::v4(), 2001);
+            sock->connect(ep_server);
+            char buff[1024];
+            sock->write_some(buffer("hello"));
+            std::cout << "bytes available " << sock->available() << std::endl;
+            socket_ptr 
+            acc.accept(*sock);
+            
+        }
     }    
 
     return 0;
@@ -96,6 +109,17 @@ int main(int argc, char *argv[]) {
 void client_session(socket_ptr sock)
 {
     std::cout << "client session open" << std::endl;
+    boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
+    boost::json::object jobj = {
+        { "ip", ep.address().to_string() },
+        { "port", ep.port() }
+    };
+    save_json(jobj);
+
+    std::cout << "address " << ep.address().to_string() << std::endl;
+    std::cout << "port " << ep.port() << std::endl;
+    std::cout << "iteration ended" << std::endl;
+
     boost::system::error_code error;
     while(true) {
         char data[512];
@@ -104,16 +128,6 @@ void client_session(socket_ptr sock)
             return ; // Connection refused
         if (len > 0)
             write(*sock, boost::asio::buffer("ok", 2));
-        boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
-        boost::json::object jobj = {
-            { "ip", ep.address().to_string() },
-            { "port", ep.port() }
-        };
-
-        std::cout << "address " << ep.address().to_string() << std::endl;
-        std::cout << "port " << ep.port() << std::endl;
-        std::cout << "iteration ended" << std::endl;
-
     }
 }
 
