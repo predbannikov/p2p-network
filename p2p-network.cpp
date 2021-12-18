@@ -5,19 +5,24 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/json/src.hpp>
+#include <boost/json/src.hpp>
+#include <mutex>
+#include <thread>
 
 using namespace boost::asio;
 
-#define PATH_JSON   "map_address"
+#define PATH_JSON   "map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
 #define PORT_LISTEN     "2021"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
+std::mutex mtx_rwfile;
+
 void client_session(socket_ptr sock);
 
 std::string get_string_myip() {
+    std::cout  << "getting my ip" << std::endl;
     boost::asio::io_service service;
     boost::asio::ip::udp::resolver resolver(service);
     boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), "google.com", "");
@@ -32,15 +37,16 @@ std::string get_string_myip() {
 
 
 boost::json::value load_json() {
-        std::ifstream file(PATH_JSON);
-        if (!file.is_open()) {
-                std::cerr << "could not open file to read " << PATH_JSON << std::endl;
-                exit(EXIT_FAILURE);
-        }
-        std::string* pstr = new std::string(std::istream_iterator<char>(file), std::istream_iterator<char>());
-        boost::json::value value = boost::json::parse(*pstr);
-        file.close();
-        return value;
+    std::lock_guard<std::mutex> lock();
+    std::ifstream file(PATH_JSON);
+    if (!file.is_open()) {
+        std::cerr << "could not open file to read " << PATH_JSON << std::endl;
+        return boost::json::value();
+    }
+    std::string* pstr = new std::string(std::istream_iterator<char>(file), std::istream_iterator<char>());
+    boost::json::value value = boost::json::parse(*pstr);
+    file.close();
+    return value;
 }
 
 void save_json(boost::json::object &jobj) {
@@ -63,7 +69,7 @@ void added_new_machine(std::string ip_str) {
  
 int main(int argc, char *argv[]) {
 
-    std::cout << "load: " << load_json().as_object() << std::endl;
+    std::cout << "load: " << load_json() << std::endl;
     std::string my_ip = get_string_myip();
     added_new_machine(my_ip);
 
@@ -99,6 +105,11 @@ void client_session(socket_ptr sock)
         if (len > 0)
             write(*sock, boost::asio::buffer("ok", 2));
         boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
+        boost::json::object jobj = {
+            { "ip", ep.address().to_string() },
+            { "port", ep.port() }
+        };
+
         std::cout << "address " << ep.address().to_string() << std::endl;
         std::cout << "port " << ep.port() << std::endl;
         std::cout << "iteration ended" << std::endl;
