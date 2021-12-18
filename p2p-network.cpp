@@ -54,11 +54,18 @@ void save_json(boost::json::object &jobj) {
     file.close();
 }
 
-
-
+void added_new_machine(std::string ip_str) {
+    boost::json::object jobj;
+    jobj.emplace("ip", ip_str);
+    std::cout << jobj << std::endl;
+    save_json(jobj);
+}
+ 
 int main(int argc, char *argv[]) {
 
+    std::cout << "load: " << load_json().as_object() << std::endl;
     std::string my_ip = get_string_myip();
+    added_new_machine(my_ip);
 
     if(my_ip == SIGNAL_SERVER) {
 
