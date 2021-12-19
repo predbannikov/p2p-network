@@ -90,23 +90,22 @@ int main(int argc, char *argv[]) {
         boost::asio::io_service service;
         boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), 2021);
         boost::asio::ip::tcp::acceptor acc(service, ep);
+        socket_ptr sock(new boost::asio::ip::tcp::socket(service));
+        boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
+        sock->connect(ep_server);
+        char buff[1024];
         while(true) {
-            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-            boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
-            sock->connect(ep_server);
-            char buff[1024];
-            //sock->write_some(buffer("hello"));
-            std::cout << "bytes available " << sock->available() << std::endl;
-            acc.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-            //sock->receive(boost::asio::buffer(buff));
+           std::string msg;
+            std::cin >> msg;
+
+            sock->write_some(buffer(msg.c_str(), msg.length()));
 
             std::cout << "case 2" << std::endl;
-            acc.accept(*sock);
 
             
         }
-    }    
 
+    }    
     return 0;
 }
 
@@ -124,15 +123,13 @@ void client_session(socket_ptr sock)
     boost::system::error_code error;
     while(true) {
         char data[512];
-        size_t len = sock->read_some(boost::asio::buffer(data), error);
-        if (error == error::eof) {
+        sock->receive(boost::asio::buffer(data));
+        if (error) {
             std::cout << error.message() << std::endl;
             break; // Connection refused
         }
-        std::cout << "ok" << std::endl;
+        std::cout << "ok: " << data << std::endl;
 
-        if (len > 0)
-            write(*sock, boost::asio::buffer("ok", 2));
     }
     std::cout << "iteration ended" << std::endl;
 }
