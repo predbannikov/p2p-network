@@ -121,15 +121,21 @@ void client_session(socket_ptr sock)
 
     std::cout << ep << std::endl;
     boost::system::error_code error;
-    while(true) {
-        char data[512];
-        sock->receive(boost::asio::buffer(data));
-        if (error) {
-            std::cout << error.message() << std::endl;
-            break; // Connection refused
-        }
-        std::cout << "ok: " << data << std::endl;
+    try {
 
+	    while(true) {
+		    char data[512];
+		    sock->receive(boost::asio::buffer(data));
+		    if (error) {
+			    std::cout << error.message() << std::endl;
+			    break; // Connection refused
+		    }
+		    std::cout << "ok: " << data << std::endl;
+
+	    }
+    }
+    catch(...) {
+	    std::cout << "catch exception" << error.message() << std::endl;
     }
     std::cout << "iteration ended" << std::endl;
 }
