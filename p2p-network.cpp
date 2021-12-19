@@ -120,7 +120,7 @@ void client_session(socket_ptr sock)
     };
     save_json(jobj);
 
-    std::cout << "address " << ep.address().to_string() << "port " << ep.port() << std::endl;
+    std::cout << ep << std::endl;
     boost::system::error_code error;
     while(true) {
         char data[512];
