@@ -12,7 +12,7 @@
 using namespace boost::asio;
 
 #define PATH_JSON   "map-address"
-#define SIGNAL_SERVER   "45.128.207.31"
+#define SIGNAL_SERVER   "192.168.0.107"
 #define PORT_LISTEN     "2021"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
