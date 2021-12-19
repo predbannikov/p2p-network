@@ -87,18 +87,16 @@ int main(int argc, char *argv[]) {
         }
 
     } else {
-        boost::asio::ip_service service;
+        boost::asio::io_service service;
         boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), 2021);
         boost::asio::ip::tcp::acceptor acc(service, ep);
         while(true) {
             socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-            boost::asio::ip::tcp:endpoint ep_server(boost::asio::ip::tcp::v4(), 2001);
+            boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
             sock->connect(ep_server);
             char buff[1024];
             sock->write_some(buffer("hello"));
             std::cout << "bytes available " << sock->available() << std::endl;
-            socket_ptr 
-            acc.accept(*sock);
             
         }
     }    
