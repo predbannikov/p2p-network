@@ -95,8 +95,14 @@ int main(int argc, char *argv[]) {
             boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
             sock->connect(ep_server);
             char buff[1024];
-            sock->write_some(buffer("hello"));
+            //sock->write_some(buffer("hello"));
             std::cout << "bytes available " << sock->available() << std::endl;
+            
+            //sock->receive(boost::asio::buffer(buff));
+            std::cout << "case 2" << std::endl;
+            acc.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            acc.accept(*sock);
+
             
         }
     }    
@@ -116,7 +122,6 @@ void client_session(socket_ptr sock)
 
     std::cout << "address " << ep.address().to_string() << std::endl;
     std::cout << "port " << ep.port() << std::endl;
-    std::cout << "iteration ended" << std::endl;
 
     boost::system::error_code error;
     while(true) {
@@ -127,5 +132,6 @@ void client_session(socket_ptr sock)
         if (len > 0)
             write(*sock, boost::asio::buffer("ok", 2));
     }
+    std::cout << "iteration ended" << std::endl;
 }
 
