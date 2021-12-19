@@ -12,7 +12,7 @@
 using namespace boost::asio;
 
 #define PATH_JSON   "map-address"
-#define SIGNAL_SERVER   "192.168.0.107"
+#define SIGNAL_SERVER   "45.128.207.31"
 #define PORT_LISTEN     "2021"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
@@ -88,21 +88,24 @@ int main(int argc, char *argv[]) {
 
     } else {
         boost::asio::io_service service;
-        boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), 2021);
-        boost::asio::ip::tcp::acceptor acc(service, ep);
         socket_ptr sock(new boost::asio::ip::tcp::socket(service));
         boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
         sock->connect(ep_server);
+        sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
         char buff[1024];
+
         while(true) {
-           std::string msg;
-            std::cin >> msg;
-
-            sock->write_some(buffer(msg.c_str(), msg.length()));
-
-            std::cout << "case 2" << std::endl;
-
-            
+            //std::string msg;
+            //std::cin >> msg;
+            //sock->write_some(buffer(msg.c_str(), msg.length()));
+            socket_ptr sock_2(new boost::asio::ip::tcp::socket(service));
+            boost::asio::ip::tcp::acceptor acc(service, sock->local_endpoint());
+            acc.listen();
+            acc.accept(*sock_2);
+            std::cout << sock->remote_endpoint() << std::endl;
+            std::cout << "receive message:" << std::endl;
+            sock_2->receive(boost::asio::buffer(buff));
+            std::cout << buff << std::endl;
         }
 
     }    
@@ -123,19 +126,19 @@ void client_session(socket_ptr sock)
     boost::system::error_code error;
     try {
 
-	    while(true) {
-		    char data[512];
-		    sock->receive(boost::asio::buffer(data));
-		    if (error) {
-			    std::cout << error.message() << std::endl;
-			    break; // Connection refused
-		    }
-		    std::cout << "ok: " << data << std::endl;
+        while(true) {
+            char data[512];
+            sock->receive(boost::asio::buffer(data));
+            if (error) {
+                std::cout << error.message() << std::endl;
+                break; // Connection refused
+            }
+            std::cout << "ok: " << data << std::endl;
 
-	    }
+        }
     }
     catch(...) {
-	    std::cout << "catch exception" << error.message() << std::endl;
+        std::cout << "catch exception" << error.message() << std::endl;
     }
     std::cout << "iteration ended" << std::endl;
 }
