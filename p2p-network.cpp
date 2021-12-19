@@ -97,10 +97,10 @@ int main(int argc, char *argv[]) {
             char buff[1024];
             //sock->write_some(buffer("hello"));
             std::cout << "bytes available " << sock->available() << std::endl;
-            
-            //sock->receive(boost::asio::buffer(buff));
-            std::cout << "case 2" << std::endl;
             acc.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            //sock->receive(boost::asio::buffer(buff));
+
+            std::cout << "case 2" << std::endl;
             acc.accept(*sock);
 
             
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
 void client_session(socket_ptr sock)
 {
-    std::cout << "client session open" << std::endl;
+    std::cout << "***   client session open   ***" << std::endl;
     boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
     boost::json::object jobj = {
         { "ip", ep.address().to_string() },
@@ -120,15 +120,13 @@ void client_session(socket_ptr sock)
     };
     save_json(jobj);
 
-    std::cout << "address " << ep.address().to_string() << std::endl;
-    std::cout << "port " << ep.port() << std::endl;
-
+    std::cout << "address " << ep.address().to_string() << "port " << ep.port() << std::endl;
     boost::system::error_code error;
     while(true) {
         char data[512];
         size_t len = sock->read_some(boost::asio::buffer(data), error);
         if (error == error::eof) 
-            return ; // Connection refused
+            break; // Connection refused
         if (len > 0)
             write(*sock, boost::asio::buffer("ok", 2));
     }
