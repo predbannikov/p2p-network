@@ -127,6 +127,8 @@ void client_session(socket_ptr sock)
         size_t len = sock->read_some(boost::asio::buffer(data), error);
         if (error == error::eof) 
             break; // Connection refused
+        std::cout << "ok" << std::endl;
+
         if (len > 0)
             write(*sock, boost::asio::buffer("ok", 2));
     }
