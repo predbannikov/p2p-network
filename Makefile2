@@ -1,0 +1,16 @@
+BOOST_ROOT = /usr/include/boost_1_78_0
+BOOST_INC = ${BOOST_ROOT}/include
+CXXFLAGS = -g -O0 -std=c++17
+all_files = p2p-networku.o
+all_arguments = -pthread -lboost_system -lboost_thread
+TARGET = p2p-networku
+CC = g++
+
+all: $(all_files)
+	$(CC) -o $(TARGET) $(all_files) $(all_arguments)  
+
+p2p-networku.o: p2p-networku.cpp
+	$(CC) -g -O0 -c p2p-networku.cpp -I $(BOOST_ROOT) 
+
+clean:
+	rm $(TARGET) $(all_files)
