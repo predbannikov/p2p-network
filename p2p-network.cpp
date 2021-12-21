@@ -1,3 +1,4 @@
+#include <boost/asio/ip/address_v4.hpp>
 #include <boost/json/error.hpp>
 #include <iostream>
 #include <string>
@@ -12,8 +13,8 @@
 using namespace boost::asio;
 
 #define PATH_JSON   "map-address"
-//#define SIGNAL_SERVER   "45.128.207.31"
-#define SIGNAL_SERVER   "192.168.0.101"
+#define SIGNAL_SERVER   "45.128.207.31"
+//#define SIGNAL_SERVER   "192.168.0.101"
 #define SERVER_PORT     2001
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
@@ -77,7 +78,9 @@ void server(boost::asio::io_service& io_service, unsigned short port)
         char data[max_length];
         boost::asio::ip::udp::endpoint sender_endpoint;
         std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
-        sock.open(boost::asio::ip::udp::v4());
+        boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
+        std::cout << "*** connect " << std::endl;
+        sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
         size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
         std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
         sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
