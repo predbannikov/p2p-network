@@ -75,7 +75,7 @@ void server(boost::asio::io_service& io_service, short port)
     {
         char data[max_length];
         boost::asio::ip::udp::endpoint sender_endpoint;
-        std::cout << "start server on: " << sock.local_endpoint() << std::endl;
+        std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
         size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
         std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
         sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
@@ -107,13 +107,16 @@ int main(int argc, char *argv[]) {
         socket_ptr sock(new boost::asio::ip::tcp::socket(service));
         boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
         sock->connect(ep_server);
-        sock->receive(boost::asio::buffer(buff));
-        std::cout << "port: " << buff << std::endl;
+        sock->read_some(boost::asio::buffer(buff));
         sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
 
         while(true) {
             boost::asio::io_service io_service;
-            server(io_service, sock->remote_endpoint().port());
+            std::string sport = std::string(buff);
+            std::cout << "port: " << sport << std::endl;
+            int p = std::stoi(sport);
+            std::cout << "p = " << p << std::endl;
+            server(io_service, p);
             //std::string msg;
             //std::cin >> msg;
             //sock->write_some(buffer(msg.c_str(), msg.length()));
