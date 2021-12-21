@@ -78,8 +78,7 @@ void server(boost::asio::io_service& io_service, short port)
         std::cout << "start server on: " << sock.local_endpoint() << std::endl;
         size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
         std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
-        std::string ip = sender_endpoint.address().to_string();
-        sock.send_to(boost::asio::buffer(ip, ip.length()), sender_endpoint);
+        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
     }
 }
 
@@ -109,7 +108,7 @@ int main(int argc, char *argv[]) {
         boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
         sock->connect(ep_server);
         sock->receive(boost::asio::buffer(buff));
-        std::cout << buff << std::endl;
+        std::cout << "port: " << buff << std::endl;
         sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
 
         while(true) {
@@ -143,6 +142,9 @@ void client_session(socket_ptr sock)
     save_json(jobj);
 
     std::cout << ep << std::endl;
+    std::string port = std::to_string(ep.port());
+    std::cout << "send port: " << port << std::endl;
+    sock->write_some(boost::asio::buffer(port.c_str(), port.length()));
     boost::system::error_code error;
     try {
 
