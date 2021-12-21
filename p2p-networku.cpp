@@ -15,7 +15,7 @@
 
 #define PATH_JSON   "map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
-#define PORT_LISTEN     "2021"
+#define SERVER_PORT     2001
 
 //typedef boost::shared_ptr<boost::asio::ip::udp::socket> socket_ptr;
 
@@ -77,9 +77,9 @@ void server(boost::asio::io_service& io_service, short port)
     {
         char data[max_length];
         boost::asio::ip::udp::endpoint sender_endpoint;
-        size_t length = sock.receive_from(
-                boost::asio::buffer(data, 1024), sender_endpoint);
-        std::cout << "data: "  << data << std::endl;
+        std::cout << "start server on: " << sock.local_endpoint() << std::endl;
+        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
+        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
         sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
     }
 }
@@ -104,9 +104,10 @@ public:
 	}
 
 	void send(const std::string& msg) {
-        boost::asio::ip::udp::endpoint ep(boost::asio::ip::address::from_string("192.168.0.107"), 1111);
-		socket_.send_to(boost::asio::buffer(msg, msg.size()), ep);
-        std::cout << "message sended" << std::endl;
+        //boost::asio::ip::udp::endpoint ep(boost::asio::ip::address::from_string("192.168.0.107"), 1111);
+		socket_.send_to(boost::asio::buffer(msg, msg.size()), endpoint_);
+        std::cout << "message sended " << std::endl;
+        std::cout <<  socket_.local_endpoint() << std::endl;
 	}
 
 private:
@@ -150,12 +151,17 @@ int main(int argc, char *argv[]) {
 //        sock.connect(ep_server);
 //        std::cout << "try connect " << ep_server << std::endl;
         try {
-            boost::asio::io_service io_service;
-            UDPClient client(io_service, "192.168.0.107", "1111");
-            io_service.run();
-            client.send("hello");
+            int client_server = 0;
+            if(client_server) {
+                boost::asio::io_service io_service;
+                UDPClient client(io_service, SIGNAL_SERVER, "53272");
+                client.send("hello");
+            } else {
+                boost::asio::io_service io_service;
+                server(io_service, 50512);
 
-            //sock.send_to(boost::asio::buffer("hello", 5), ep_server);
+            }
+                        //sock.send_to(boost::asio::buffer("hello", 5), ep_server);
         }
         catch(...) {
             
