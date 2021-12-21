@@ -69,45 +69,20 @@ void added_new_machine(std::string ip_str) {
     save_json(jobj);
 }
 
-class HelloWorldServer {
-public:
-    HelloWorldServer(boost::asio::io_service& io_service)
-        : _socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 1111))
+void server(boost::asio::io_service& io_service, short port)
+{
+    enum {max_length = 1024};
+    boost::asio::ip::udp::socket sock(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
+    for (;;)
     {
-        startReceive();
+        char data[max_length];
+        boost::asio::ip::udp::endpoint sender_endpoint;
+        size_t length = sock.receive_from(
+                boost::asio::buffer(data, 1024), sender_endpoint);
+        std::cout << "data: "  << data << std::endl;
+        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
     }
-private:
-    void startReceive() {
-        _socket.async_receive_from(
-            boost::asio::buffer(_recvBuffer), _remoteEndpoint,
-            boost::bind(&HelloWorldServer::handleReceive, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-    void handleReceive(const boost::system::error_code& error,
-                       std::size_t bytes_transferred) {
-        if (!error || error == boost::asio::error::message_size) {
-
-            auto message = std::make_shared<std::string>("Hello, World\n");
-
-            _socket.async_send_to(boost::asio::buffer(*message), _remoteEndpoint,
-                boost::bind(&HelloWorldServer::handleSend, this, message,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
-        }
-    }
-
-    void handleSend(std::shared_ptr<std::string> message,
-                    const boost::system::error_code& ec,
-                    std::size_t bytes_transferred) {
-        startReceive();
-    }
-
-    boost::asio::ip::udp::socket _socket;
-    boost::asio::ip::udp::endpoint _remoteEndpoint;
-    std::array<char, 1024> _recvBuffer;
-}; 
+}
 
 class UDPClient
 {
@@ -150,10 +125,7 @@ int main(int argc, char *argv[]) {
     if(my_ip == SIGNAL_SERVER) {
         try {
             boost::asio::io_service io_service;
-            HelloWorldServer server{io_service};
-            io_service.run();
-
-
+            server(io_service, 2001);
         } catch (const std::exception& ex) {
             std::cerr << ex.what() << std::endl;
         }
