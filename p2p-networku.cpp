@@ -24,7 +24,6 @@ std::mutex mtx_rwfile;
 //void client_session(socket_ptr sock);
 
 std::string get_string_myip() {
-    std::cout  << "getting my ip" << std::endl;
     boost::asio::io_service service;
     boost::asio::ip::udp::resolver resolver(service);
     boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), "google.com", "");
@@ -33,6 +32,7 @@ std::string get_string_myip() {
     boost::asio::ip::udp::socket sock(service);
     sock.connect(eptest);
     std::string string_ip = sock.local_endpoint().address().to_string();
+    std::cout  << "My ip: ";
     std::cout << string_ip << std::endl;
     return string_ip;
 }
@@ -129,7 +129,9 @@ public:
 	}
 
 	void send(const std::string& msg) {
-		socket_.send_to(boost::asio::buffer(msg, msg.size()), endpoint_);
+        boost::asio::ip::udp::endpoint ep(boost::asio::ip::address::from_string("192.168.0.107"), 1111);
+		socket_.send_to(boost::asio::buffer(msg, msg.size()), ep);
+        std::cout << "message sended" << std::endl;
 	}
 
 private:
@@ -141,9 +143,9 @@ private:
 int main(int argc, char *argv[]) {
 
     std::cout << "start programm" << std::endl;
-    std::cout << "load: " << load_json() << std::endl;
+    //std::cout << "load: " << load_json() << std::endl;
     std::string my_ip = get_string_myip();
-    added_new_machine(my_ip);
+    //added_new_machine(my_ip);
 
     if(my_ip == SIGNAL_SERVER) {
         try {
@@ -177,8 +179,10 @@ int main(int argc, char *argv[]) {
 //        std::cout << "try connect " << ep_server << std::endl;
         try {
             boost::asio::io_service io_service;
-            UDPClient client(io_service, "45.128.207.31", "1111");
+            UDPClient client(io_service, "192.168.0.107", "1111");
+            io_service.run();
             client.send("hello");
+
             //sock.send_to(boost::asio::buffer("hello", 5), ep_server);
         }
         catch(...) {
