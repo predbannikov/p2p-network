@@ -77,6 +77,7 @@ void server(boost::asio::io_service& io_service, unsigned short port)
         char data[max_length];
         boost::asio::ip::udp::endpoint sender_endpoint;
         std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
+        sock.open(boost::asio::ip::udp::v4());
         size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
         std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
         sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
