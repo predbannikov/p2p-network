@@ -68,7 +68,47 @@ void added_new_machine(std::string ip_str) {
     std::cout << jobj << std::endl;
     save_json(jobj);
 }
- 
+
+class HelloWorldServer {
+public:
+    HelloWorldServer(boost::asio::io_service& io_service)
+        : _socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 1111))
+    {
+        startReceive();
+    }
+private:
+    void startReceive() {
+        _socket.async_receive_from(
+            boost::asio::buffer(_recvBuffer), _remoteEndpoint,
+            boost::bind(&HelloWorldServer::handleReceive, this,
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+    void handleReceive(const boost::system::error_code& error,
+                       std::size_t bytes_transferred) {
+        if (!error || error == boost::asio::error::message_size) {
+
+            auto message = std::make_shared<std::string>("Hello, World\n");
+
+            _socket.async_send_to(boost::asio::buffer(*message), _remoteEndpoint,
+                boost::bind(&HelloWorldServer::handleSend, this, message,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
+    }
+
+    void handleSend(std::shared_ptr<std::string> message,
+                    const boost::system::error_code& ec,
+                    std::size_t bytes_transferred) {
+        startReceive();
+    }
+
+    boost::asio::ip::udp::socket _socket;
+    boost::asio::ip::udp::endpoint _remoteEndpoint;
+    std::array<char, 1024> _recvBuffer;
+}; 
+
 int main(int argc, char *argv[]) {
 
     std::cout << "start programm" << std::endl;
@@ -77,23 +117,35 @@ int main(int argc, char *argv[]) {
     added_new_machine(my_ip);
 
     if(my_ip == SIGNAL_SERVER) {
+        try {
+            boost::asio::io_service io_service;
+            HelloWorldServer server{io_service};
+            io_service.run();
 
-        boost::asio::io_service service;
-        boost::asio::ip::udp::endpoint ep(boost::asio::ip::udp::v4(), 2001);
-        while(true) {
-            boost::system::error_code ec = boost::asio::error::would_block;
-            std::size_t length = 0;
-            boost::asio::ip::udp::socket sock(service, ep);
-            service.run_one();
-            while(ec == boost::asio::error::would_block);
-            std::cout << "new connection: " << std::endl;
+
+        } catch (const std::exception& ex) {
+            std::cerr << ex.what() << std::endl;
         }
+        //        boost::asio::io_service service;
+//        boost::asio::ip::udp::endpoint ep(boost::asio::ip::udp::v4(), 2001);
+//        while(true) {
+//            boost::system::error_code ec = boost::asio::error::would_block;
+//            std::size_t length = 0;
+//            boost::asio::ip::udp::socket sock(service, ep);
+//            service.run_one();
+//            while(ec == boost::asio::error::would_block);
+//            std::cout << "new connection: " << std::endl;
+//        }
 
     } else {
         boost::system::error_code ec = boost::asio::error::would_block;
         boost::asio::io_service service;
+        boost::asio::ip::udp::resolver reslvr(service);
+        //boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), SIGNAL_SERVER, 2001);
         boost::asio::ip::udp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
         boost::asio::ip::udp::socket sock(service);
+        sock.connect(ep_server);
+        std::cout << "try connect " << ep_server << std::endl;
         try {
 
             sock.send_to(boost::asio::buffer("hello", 5), ep_server);
@@ -101,7 +153,6 @@ int main(int argc, char *argv[]) {
         catch(...) {
             std::cout << ec.message() << std::endl;
         }
-        std::cout << "case 1" << std::endl;
         while(true) {
             std::cout << sock.remote_endpoint() << std::endl;
             std::cout << sock.local_endpoint() << std::endl;
@@ -111,8 +162,13 @@ int main(int argc, char *argv[]) {
             //std::string msg;
             //std::cin >> msg;
             //sock->write_some(buffer(msg.c_str(), msg.length()));
-            boost::asio::ip::udp::endpoint ep_ext(boost::asio::ip::udp::v4(), sock.local_endpoint().port());
-            boost::asio::ip::udp::socket sock_2(service, ep_ext);
+            sock.set_option(boost::asio::ip::tcp::socket::reuse_address(true));
+            boost::asio::io_service service2;
+            std::cout << "case 1" << std::endl;
+            boost::asio::ip::udp::endpoint ep_ext(sock.local_endpoint().address(), sock.local_endpoint().port());
+            std::cout << "case 2" << std::endl;
+            boost::asio::ip::udp::socket sock_2(service2, ep_ext);
+            std::cout << "case 3" << std::endl;
             sock_2.receive(boost::asio::buffer(buff));
             service.run_one();
             while(ec == boost::asio::error::would_block);
