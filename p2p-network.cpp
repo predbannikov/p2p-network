@@ -12,7 +12,8 @@
 using namespace boost::asio;
 
 #define PATH_JSON   "map-address"
-#define SIGNAL_SERVER   "45.128.207.31"
+//#define SIGNAL_SERVER   "45.128.207.31"
+#define SIGNAL_SERVER   "192.168.0.101"
 #define SERVER_PORT     2001
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
@@ -67,7 +68,7 @@ void added_new_machine(std::string ip_str) {
     save_json(jobj);
 }
  
-void server(boost::asio::io_service& io_service, short port)
+void server(boost::asio::io_service& io_service, unsigned short port)
 {
     enum {max_length = 1024};
     boost::asio::ip::udp::socket sock(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
