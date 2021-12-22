@@ -177,6 +177,7 @@ int main(int argc, char *argv[]) {
             boost::asio::io_service io_service;
             udp_server userv(io_service, 2002);
             io_service.run();
+            server(service, 2003);
             break;
 
             std::cout << "new connection: " << std::endl;
