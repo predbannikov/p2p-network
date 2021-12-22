@@ -105,7 +105,7 @@ void server(unsigned short port)
             //        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
             //        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
    }
 }
 
@@ -132,7 +132,6 @@ class udp_server
         void handle_receive(const boost::system::error_code& error,
                 std::size_t /*bytes_transferred*/)
         {
-            std::cout << "handle_receive" << std::endl;
             if (!error || error == boost::asio::error::message_size)
             {
                 boost::shared_ptr<std::string> message(new std::string("***********"));
@@ -141,7 +140,7 @@ class udp_server
                         boost::bind(&udp_server::handle_send, this, message,
                             boost::asio::placeholders::error,
                             boost::asio::placeholders::bytes_transferred));
-
+                std::cout << "handle_receive " << remote_endpoint_ << std::endl;
                 start_receive();
             }
         }
