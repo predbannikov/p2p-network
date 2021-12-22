@@ -84,20 +84,20 @@ void server(unsigned short port)
     for (;;)
     {
         if(my_ip == SIGNAL_SERVER) {
-            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string("178.176.159.182"), 2003);
+            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string("178.176.159.182"), 50001);
             std::cout << "send_to " << tmp_ep  << std::endl;
-            sock.send_to(boost::asio::buffer("#######", 1), tmp_ep);
+            sock.send_to(boost::asio::buffer("#######", 3), tmp_ep);
         } else {
             char data[max_length];
             boost::asio::ip::udp::endpoint sender_endpoint;
             //std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
-            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2002);
+            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
             //std::cout << "try send_to " << tmp_ep  << std::endl;
             //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
             //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
 
             std::cout << "send_to " << tmp_ep  << std::endl;
-            sock.send_to(boost::asio::buffer("*******", 1), tmp_ep);
+            sock.send_to(boost::asio::buffer("*******", 3), tmp_ep);
 
 
             //        std::cout << "try sock.receiv" << std::endl;
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
                         
 
             boost::asio::io_service io_service;
-            udp_server userv(io_service, 2002);
-            boost::thread(boost::bind(server, 2003));
+            udp_server userv(io_service, 50003);
+            boost::thread(boost::bind(server, 50001));
             io_service.run();
 //            boost::thread(boost::bind(server, 2003));
 
@@ -193,8 +193,8 @@ int main(int argc, char *argv[]) {
 //        sock->read_some(boost::asio::buffer(buff));
 //        sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
 //
-        udp_server userv(service, 2003);
-        boost::thread(boost::bind(server, 2002));
+        udp_server userv(service, 50001);
+        boost::thread(boost::bind(server, 50001));
         service.run();
 //        while(true) {
 //            boost::asio::io_service io_service;
