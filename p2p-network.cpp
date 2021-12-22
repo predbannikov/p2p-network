@@ -1,9 +1,12 @@
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/json/error.hpp>
+#include <boost/system/system_error.hpp>
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <boost/asio/io_service.hpp>
+#include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/json/src.hpp>
@@ -20,9 +23,11 @@ using namespace boost::asio;
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
 std::mutex mtx_rwfile;
-
+std::string my_ip;
+boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
+boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 void client_session(socket_ptr sock);
-void client_session_ping(socket_ptr sock);
+void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
 
 std::string get_string_myip() {
     std::cout  << "getting my ip" << std::endl;
@@ -88,11 +93,57 @@ void server(boost::asio::io_service& io_service, unsigned short port)
     }
 }
 
+class udp_server
+{
+    public:
+        udp_server(boost::asio::io_service& io_service, int port)
+            : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port))
+        {
+            start_receive();
+        }
+
+    private:
+        void start_receive()
+        {
+            socket_.async_receive_from(
+                    boost::asio::buffer(recv_buffer_), remote_endpoint_,
+                    boost::bind(&udp_server::handle_receive, this,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+        }
+
+        void handle_receive(const boost::system::error_code& error,
+                std::size_t /*bytes_transferred*/)
+        {
+            if (!error || error == boost::asio::error::message_size)
+            {
+                boost::shared_ptr<std::string> message(new std::string("***********"));
+
+                socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                        boost::bind(&udp_server::handle_send, this, message,
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
+
+                start_receive();
+            }
+        }
+
+        void handle_send(boost::shared_ptr<std::string> /*message*/,
+                const boost::system::error_code& /*error*/,
+                std::size_t /*bytes_transferred*/)
+        {
+        }
+
+        boost::asio::ip::udp::socket socket_;
+        boost::asio::ip::udp::endpoint remote_endpoint_;
+        boost::array<char, 1> recv_buffer_;
+};
+
 int main(int argc, char *argv[]) {
 
     std::cout << "start programm" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
-    std::string my_ip = get_string_myip();
+    my_ip = get_string_myip();
     added_new_machine(my_ip);
 
     if(my_ip == SIGNAL_SERVER) {
@@ -104,7 +155,12 @@ int main(int argc, char *argv[]) {
             socket_ptr sock(new boost::asio::ip::tcp::socket(service));
             acc.accept(*sock);
             boost::thread(boost::bind(client_session, sock));
-            boost::thread(boost::bind(client_session_ping,sock));
+            //boost::thread(boost::bind(client_session_ping, sock, SERVER_PORT, 3000));
+                        
+
+            boost::asio::io_service io_service;
+            udp_server userv(io_service, 2002);
+
             std::cout << "new connection: " << std::endl;
         }
 
@@ -121,9 +177,13 @@ int main(int argc, char *argv[]) {
             boost::asio::io_service io_service;
             std::string sport = std::string(buff);
             std::cout << "port: " << sport << std::endl;
-            int p = std::stoi(sport);
+            unsigned short p = std::stoi(sport);
             std::cout << "p = " << p << std::endl;
-            server(io_service, p);
+            //boost::thread(boost::bind(client_session_ping, sock, p, 1000));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+            server(io_service, 2002);
+
             //std::string msg;
             //std::cin >> msg;
             //sock->write_some(buffer(msg.c_str(), msg.length()));
@@ -175,19 +235,38 @@ void client_session(socket_ptr sock)
     std::cout << "iteration ended" << std::endl;
 }
 
-void client_session_ping(socket_ptr sock)
+void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
 {
-    std::cout << "###Ping send: " << std::endl;
-    boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
-    boost::asio::ip::udp::endpoint uep(boost::asio::ip::udp::v4(), ep.port());
-    boost::asio::ip::udp::endpoint loc_uep(boost::asio::ip::udp::v4(), SERVER_PORT);
-    std::cout << "ep=" << ep << std::endl;
-    std::cout << "uep=" << uep << std::endl;
-    std::cout << "loc_uep=" << loc_uep << std::endl;
-    boost::asio::io_service io_service;
-    boost::asio::ip::udp::socket usock(io_service, loc_uep);
-    usock.send_to(boost::asio::buffer("*",1), uep);
-    
+    while(true) {
+        std::cout << "################# Ping sending ############### " << std::endl;
+        boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
+        boost::asio::ip::udp::endpoint client_ep(boost::asio::ip::udp::v4(), port);
+        std::cout << "ep=" << ep << std::endl;
+        std::cout << "server_uep=" << server_uep << std::endl;
+        std::cout << "client_ep=" << client_ep << std::endl;
+        boost::asio::io_service io_service;
+        boost::system::error_code ec;
+        if (my_ip == SIGNAL_SERVER) {
+            boost::asio::ip::udp::socket usock(io_service, server_uep);
+            std::cout << "send_to " << usock.local_endpoint() << " " << client_ep << std::endl;
+            std::string strsend = " #server: "; 
+            usock.send_to(boost::asio::buffer(strsend.c_str(),strsend.length()), client_ep);
+            
+        } else {
+            try {
+                boost::asio::ip::udp::socket usock(io_service, client_ep);
+                std::cout << "send_to " << usock.local_endpoint() << std::endl;
+                std::string strsend = " #client: ";
+                usock.send_to(boost::asio::buffer(strsend.c_str(),strsend.length()), server_uep);
+            } 
+            catch (boost::system::system_error e) {
+                std::cerr << std::endl << "ERROR: " << e.what() << " " << e.what() << std::endl;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(timewait));
+       
+    }
+   
     
 
 }
