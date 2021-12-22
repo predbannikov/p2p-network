@@ -167,6 +167,7 @@ int main(int argc, char *argv[]) {
 
             boost::asio::io_service io_service;
             new udp_server(io_service, 2002);
+            io_service.run();
             break;
 
             std::cout << "new connection: " << std::endl;
