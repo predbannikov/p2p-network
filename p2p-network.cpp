@@ -85,18 +85,19 @@ void server(unsigned short port)
     {
         if(my_ip == SIGNAL_SERVER) {
             boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string("178.176.159.182"), 2003);
-            std::cout << "try send_to " << tmp_ep  << std::endl;
-            sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
+            std::cout << "send_to " << tmp_ep  << std::endl;
+            sock.send_to(boost::asio::buffer("#######", 1), tmp_ep);
         } else {
             char data[max_length];
             boost::asio::ip::udp::endpoint sender_endpoint;
-            std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
+            //std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
             boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2002);
-            std::cout << "try send_to " << tmp_ep  << std::endl;
+            //std::cout << "try send_to " << tmp_ep  << std::endl;
             //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
             //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
 
-            sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
+            std::cout << "send_to " << tmp_ep  << std::endl;
+            sock.send_to(boost::asio::buffer("*******", 1), tmp_ep);
 
 
             //        std::cout << "try sock.receiv" << std::endl;
@@ -120,12 +121,12 @@ class udp_server
     private:
         void start_receive()
         {
-            std::cout << "start_receive" << std::endl;
             socket_.async_receive_from(
                     boost::asio::buffer(recv_buffer_), remote_endpoint_,
                     boost::bind(&udp_server::handle_receive, this,
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred));
+            std::cout << "receiv data: " << recv_buffer_.data() << std::endl;
         }
 
         void handle_receive(const boost::system::error_code& error,
