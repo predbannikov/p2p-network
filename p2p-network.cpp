@@ -112,6 +112,7 @@ class udp_server
     private:
         void start_receive()
         {
+            std::cout << "start_receive" << std::endl;
             socket_.async_receive_from(
                     boost::asio::buffer(recv_buffer_), remote_endpoint_,
                     boost::bind(&udp_server::handle_receive, this,
@@ -122,6 +123,7 @@ class udp_server
         void handle_receive(const boost::system::error_code& error,
                 std::size_t /*bytes_transferred*/)
         {
+            std::cout << "handle_receive" << std::endl;
             if (!error || error == boost::asio::error::message_size)
             {
                 boost::shared_ptr<std::string> message(new std::string("***********"));
@@ -166,7 +168,7 @@ int main(int argc, char *argv[]) {
                         
 
             boost::asio::io_service io_service;
-            new udp_server(io_service, 2002);
+            udp_server userv(io_service, 2002);
             io_service.run();
             break;
 
