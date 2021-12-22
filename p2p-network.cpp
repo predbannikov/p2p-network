@@ -81,23 +81,30 @@ void server(boost::asio::io_service& io_service, unsigned short port)
     boost::asio::ip::udp::socket sock(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
     for (;;)
     {
-        char data[max_length];
-        boost::asio::ip::udp::endpoint sender_endpoint;
-        std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
-        boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2002);
-        std::cout << "try send_to " << tmp_ep  << std::endl;
-        //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
-        //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
+        if(my_ip == SIGNAL_SERVER) {
+            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string("178.176.159.182"), 2003);
+            std::cout << "try send_to " << tmp_ep  << std::endl;
+            sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        } else {
+            char data[max_length];
+            boost::asio::ip::udp::endpoint sender_endpoint;
+            std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
+            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2002);
+            std::cout << "try send_to " << tmp_ep  << std::endl;
+            //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
+            //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
 
-        sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
+            sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
-//        std::cout << "try sock.receiv" << std::endl;
-//        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
-//        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
-//        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
-    }
+            //        std::cout << "try sock.receiv" << std::endl;
+            //        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
+            //        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
+            //        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
+        }
+   }
 }
 
 class udp_server
@@ -178,21 +185,23 @@ int main(int argc, char *argv[]) {
     } else {
         char buff[1024];
         boost::asio::io_service service;
-        socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-        boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
-        sock->connect(ep_server);
-        sock->read_some(boost::asio::buffer(buff));
-        sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
-
+//        socket_ptr sock(new boost::asio::ip::tcp::socket(service));
+//        boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
+//        sock->connect(ep_server);
+//        sock->read_some(boost::asio::buffer(buff));
+//        sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
+//
+        udp_server userv(service, 2003);
+        service.run();
         while(true) {
             boost::asio::io_service io_service;
-            std::string sport = std::string(buff);
-            std::cout << "port: " << sport << std::endl;
-            unsigned short p = std::stoi(sport);
-            std::cout << "p = " << p << std::endl;
-            //boost::thread(boost::bind(client_session_ping, sock, p, 1000));
-            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
+//            std::string sport = std::string(buff);
+//            std::cout << "port: " << sport << std::endl;
+//            unsigned short p = std::stoi(sport);
+//            std::cout << "p = " << p << std::endl;
+//            //boost::thread(boost::bind(client_session_ping, sock, p, 1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+//
             server(io_service, 2002);
 
             //std::string msg;
