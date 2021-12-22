@@ -84,12 +84,19 @@ void server(boost::asio::io_service& io_service, unsigned short port)
         char data[max_length];
         boost::asio::ip::udp::endpoint sender_endpoint;
         std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
-        boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
-        std::cout << "*** connect " << std::endl;
+        boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2002);
+        std::cout << "try send_to " << tmp_ep  << std::endl;
+        //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
+        //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
+
         sock.send_to(boost::asio::buffer("*", 1), tmp_ep);
-        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
-        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
-        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+
+//        std::cout << "try sock.receiv" << std::endl;
+//        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
+//        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
+//        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
     }
 }
 
@@ -152,14 +159,15 @@ int main(int argc, char *argv[]) {
         boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), SERVER_PORT);
         boost::asio::ip::tcp::acceptor acc(service, ep);
         while(true) {
-            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-            acc.accept(*sock);
-            boost::thread(boost::bind(client_session, sock));
-            //boost::thread(boost::bind(client_session_ping, sock, SERVER_PORT, 3000));
+//            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
+//            acc.accept(*sock);
+//            boost::thread(boost::bind(client_session, sock));
+//            //boost::thread(boost::bind(client_session_ping, sock, SERVER_PORT, 3000));
                         
 
             boost::asio::io_service io_service;
-            udp_server userv(io_service, 2002);
+            new udp_server(io_service, 2002);
+            break;
 
             std::cout << "new connection: " << std::endl;
         }
