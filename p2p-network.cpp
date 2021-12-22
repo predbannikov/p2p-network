@@ -22,6 +22,7 @@ typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 std::mutex mtx_rwfile;
 
 void client_session(socket_ptr sock);
+void client_session_ping(socket_ptr sock);
 
 std::string get_string_myip() {
     std::cout  << "getting my ip" << std::endl;
@@ -102,7 +103,8 @@ int main(int argc, char *argv[]) {
         while(true) {
             socket_ptr sock(new boost::asio::ip::tcp::socket(service));
             acc.accept(*sock);
-            boost::thread( boost::bind(client_session, sock));
+            boost::thread(boost::bind(client_session, sock));
+            boost::thread(boost::bind(client_session_ping,sock));
             std::cout << "new connection: " << std::endl;
         }
 
@@ -171,5 +173,22 @@ void client_session(socket_ptr sock)
         std::cout << "catch exception" << error.message() << std::endl;
     }
     std::cout << "iteration ended" << std::endl;
+}
+
+void client_session_ping(socket_ptr sock)
+{
+    std::cout << "###Ping send: " << std::endl;
+    boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
+    boost::asio::ip::udp::endpoint uep(boost::asio::ip::udp::v4(), ep.port());
+    boost::asio::ip::udp::endpoint loc_uep(boost::asio::ip::udp::v4(), SERVER_PORT);
+    std::cout << "ep=" << ep << std::endl;
+    std::cout << "uep=" << uep << std::endl;
+    std::cout << "loc_uep=" << loc_uep << std::endl;
+    boost::asio::io_service io_service;
+    boost::asio::ip::udp::socket usock(io_service, loc_uep);
+    usock.send_to(boost::asio::buffer("*",1), uep);
+    
+    
+
 }
 
