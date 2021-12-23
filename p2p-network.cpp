@@ -1,6 +1,8 @@
 #include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/placeholders.hpp>
 #include <boost/json/error.hpp>
 #include <boost/system/system_error.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -117,9 +119,14 @@ class udp_server
 {
     public:
         udp_server(boost::asio::io_service& io_service, int port)
-            : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port))
+            : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), t(io_service, boost::posix_time::seconds(1))
         {
             start_receive();
+            if(my_ip != SIGNAL_SERVER) {
+                //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
+                boost::system::error_code ec;
+                t.async_wait(boost::bind(&udp_server::send_ping, this));
+            }
         }
 
     private:
@@ -153,12 +160,25 @@ class udp_server
                 const boost::system::error_code& /*error*/,
                 std::size_t /*bytes_transferred*/)
         {
-            std::cout << "sended: " << message << std::endl; 
+            std::cout << "sended: " << *message << std::endl; 
         }
 
+        void send_ping() 
+        {
+            
+            boost::shared_ptr<std::string> msg(new std::string("***PING***"));
+            boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
+            socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
+                  boost::bind(&udp_server::handle_send, this, msg,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+            t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
+            t.async_wait(boost::bind(&udp_server::send_ping, this));
+        }
         boost::asio::ip::udp::socket socket_;
         boost::asio::ip::udp::endpoint remote_endpoint_;
         boost::array<char, 1> recv_buffer_;
+        boost::asio::deadline_timer t;
 };
 
 int main(int argc, char *argv[]) {
