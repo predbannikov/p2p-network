@@ -96,7 +96,7 @@ int create_packet()
 
     // Create all I/O objects.
     boost::asio::ip::udp::socket receiver(io_service,
-                                          boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string("178.176.159.182"), 50001));
+                                          boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
     boost::asio::basic_raw_socket<Raw> sender(io_service,
                                               Raw::endpoint(Raw::v4(), 0));
 
