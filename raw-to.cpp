@@ -108,7 +108,8 @@ int create_packet()
     // Create the UDP header.
     udp_header udp;
     udp.source_port(spoofed_endpoint.port());
-    udp.destination_port(receiver_endpoint.port());
+    udp.destination_port(50001);
+    //udp.destination_port(receiver_endpoint.port());
     udp.length(udp.size() + payload.size()); // Header + Payload
     udp.checksum(0); // Optioanl for IPv4
 
@@ -125,7 +126,8 @@ int create_packet()
     ip.fragment_offset(0);
     ip.time_to_live(4);
     ip.source_address(spoofed_endpoint.address().to_v4());
-    ip.destination_address(receiver_endpoint.address().to_v4());
+    ip.destination_address(boost::asio::ip::address_v4::from_string("178.176.159.182"));
+    //ip.destination_address(receiver_endpoint.address().to_v4());
     ip.protocol(IPPROTO_UDP);
     calculate_checksum(ip);
 
