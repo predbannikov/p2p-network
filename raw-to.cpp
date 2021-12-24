@@ -103,7 +103,7 @@ int create_packet()
     // Craft a UDP message with a payload 'hello' coming from
     // 8.8.8.8:54321
     const boost::asio::ip::udp::endpoint spoofed_endpoint(boost::asio::ip::address_v4::from_string("45.128.207.31"), 50003);
-    const std::string payload = "hello";
+    const std::string payload = "^";
 
     // Create the UDP header.
     udp_header udp;
@@ -120,13 +120,13 @@ int create_packet()
     ip.type_of_service(0);           // Differentiated service code point
     auto total_length = ip.size() + udp.size() + payload.size();
     ip.total_length(total_length); // Entire message.
-    ip.identification(0);
+    ip.identification(0x5000);
     ip.dont_fragment(true);
     ip.more_fragments(false);
     ip.fragment_offset(0);
-    ip.time_to_live(4);
+    ip.time_to_live(127);
     ip.source_address(spoofed_endpoint.address().to_v4());
-    ip.destination_address(boost::asio::ip::address_v4::from_string("178.176.159.182"));
+    ip.destination_address(boost::asio::ip::address_v4::from_string("192.168.0.101"));
     //ip.destination_address(receiver_endpoint.address().to_v4());
     ip.protocol(IPPROTO_UDP);
     calculate_checksum(ip);
@@ -138,7 +138,7 @@ int create_packet()
                                                               boost::asio::buffer(payload)
                                                           }};
     auto bytes_transferred = sender.send_to(buffers,
-                                            Raw::endpoint(receiver_endpoint.address(), receiver_endpoint.port()));
+                                            Raw::endpoint(boost::asio::ip::address_v4::from_string("192.168.0.101"), 50001));
     assert(bytes_transferred == total_length);
 
     // Read on the reciever.
