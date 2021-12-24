@@ -2,4 +2,11 @@
 p2p-network
 p2p-networku
 map-address
+p2p-network.cflags
+p2p-network.config
+p2p-network.creator
+p2p-network.creator.user
+p2p-network.cxxflags
+p2p-network.files
+p2p-network.includes
 

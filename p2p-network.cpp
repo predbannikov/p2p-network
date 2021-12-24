@@ -14,6 +14,7 @@
 #include <boost/json/src.hpp>
 #include <mutex>
 #include <thread>
+#include "raw-to.h"
 
 using namespace boost::asio;
 
@@ -21,11 +22,13 @@ using namespace boost::asio;
 #define SIGNAL_SERVER   "45.128.207.31"
 //#define SIGNAL_SERVER   "192.168.0.101"
 #define SERVER_PORT     2001
+#define KALI_MACHINE	"192.168.0.107"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
 std::mutex mtx_rwfile;
 std::string my_ip;
+
 boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 void client_session(socket_ptr sock);
@@ -47,7 +50,7 @@ std::string get_string_myip() {
 
 
 boost::json::value load_json() {
-    std::lock_guard<std::mutex> lock();
+    std::lock_guard<std::mutex> lock(mtx_rwfile);
     std::ifstream file(PATH_JSON);
     if (!file.is_open()) {
         std::cerr << "could not open file to read " << PATH_JSON << std::endl;
@@ -210,6 +213,9 @@ int main(int argc, char *argv[]) {
 //            std::cout << "new connection: " << std::endl;
         }
 
+    } else if(my_ip == KALI_MACHINE) {
+        std::cout << KALI_MACHINE << std::endl;
+        create_packet();
     } else {
         char buff[1024];
         boost::asio::io_service service;

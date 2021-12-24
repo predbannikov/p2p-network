@@ -10,6 +10,7 @@
 #include <boost/json/src.hpp>
 #include <mutex>
 #include <thread>
+#include "raw-to.h"
 
 //using namespace boost::asio;
 
