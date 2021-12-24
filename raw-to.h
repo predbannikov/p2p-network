@@ -39,7 +39,7 @@ public:
     int family() const;
 
     ///@brief Compare two protocols for equality.
-     bool operator==(const Raw& p2);
+    bool operator==(const Raw& p2);
 
     /// Compare two protocols for inequality.
     bool operator!=(const Raw& p2);

@@ -95,18 +95,14 @@ int create_packet()
     boost::asio::io_service io_service;
 
     // Create all I/O objects.
-    boost::asio::ip::udp::socket receiver(io_service,
-                                          boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
-    boost::asio::basic_raw_socket<Raw> sender(io_service,
-                                              Raw::endpoint(Raw::v4(), 0));
+    boost::asio::ip::udp::socket receiver(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+    boost::asio::basic_raw_socket<Raw> sender(io_service, Raw::endpoint(Raw::v4(), 0));
 
     const auto receiver_endpoint = receiver.local_endpoint();
 
     // Craft a UDP message with a payload 'hello' coming from
     // 8.8.8.8:54321
-    const boost::asio::ip::udp::endpoint spoofed_endpoint(
-                boost::asio::ip::address_v4::from_string("45.128.207.31"),
-                50003);
+    const boost::asio::ip::udp::endpoint spoofed_endpoint(boost::asio::ip::address_v4::from_string("45.128.207.31"), 50003);
     const std::string payload = "hello";
 
     // Create the UDP header.
