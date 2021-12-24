@@ -22,7 +22,7 @@ using namespace boost::asio;
 #define SIGNAL_SERVER   "45.128.207.31"
 //#define SIGNAL_SERVER   "192.168.0.101"
 #define SERVER_PORT     2001
-#define KALI_MACHINE	"192.168.0.107"
+#define MY_MACHINE	"192.168.0.101"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
@@ -31,6 +31,7 @@ std::string my_ip;
 
 boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
+
 void client_session(socket_ptr sock);
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
 
@@ -44,7 +45,6 @@ std::string get_string_myip() {
     boost::asio::ip::udp::socket sock(service);
     sock.connect(eptest);
     std::string string_ip = sock.local_endpoint().address().to_string();
-    std::cout << string_ip << std::endl;
     return string_ip;
 }
 
@@ -120,68 +120,68 @@ void server(unsigned short port)
 
 class udp_server
 {
-    public:
-        udp_server(boost::asio::io_service& io_service, int port)
-            : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), t(io_service, boost::posix_time::seconds(1))
-        {
-            start_receive();
-            if(my_ip != SIGNAL_SERVER) {
-                //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
-                boost::system::error_code ec;
-                t.async_wait(boost::bind(&udp_server::send_ping, this));
-            }
-        }
-
-    private:
-        void start_receive()
-        {
-            socket_.async_receive_from(
-                    boost::asio::buffer(recv_buffer_), remote_endpoint_,
-                    boost::bind(&udp_server::handle_receive, this,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-            std::cout << "receiv data: " << std::string(recv_buffer_.begin(), recv_buffer_.end()) << recv_buffer_.size() << std::endl;
-        }
-
-        void handle_receive(const boost::system::error_code& error,
-                std::size_t /*bytes_transferred*/)
-        {
-            if (!error || error == boost::asio::error::message_size)
-            {
-                boost::shared_ptr<std::string> message(new std::string("***********"));
-
-                socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                        boost::bind(&udp_server::handle_send, this, message,
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred));
-                std::cout << "handle_receive " << remote_endpoint_ << std::endl;
-                start_receive();
-            }
-        }
-
-        void handle_send(boost::shared_ptr<std::string> message,
-                const boost::system::error_code& /*error*/,
-                std::size_t /*bytes_transferred*/)
-        {
-            std::cout << "sended: " << *message << std::endl; 
-        }
-
-        void send_ping() 
-        {
-            
-            boost::shared_ptr<std::string> msg(new std::string("*****"));
-            boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
-            socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
-                  boost::bind(&udp_server::handle_send, this, msg,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
-            t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
+public:
+    udp_server(boost::asio::io_service& io_service, int port)
+        : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), t(io_service, boost::posix_time::seconds(1))
+    {
+        start_receive();
+        if(my_ip != SIGNAL_SERVER) {
+            //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
+            boost::system::error_code ec;
             t.async_wait(boost::bind(&udp_server::send_ping, this));
         }
-        boost::asio::ip::udp::socket socket_;
-        boost::asio::ip::udp::endpoint remote_endpoint_;
-        boost::array<char, 1> recv_buffer_;
-        boost::asio::deadline_timer t;
+    }
+
+private:
+    void start_receive()
+    {
+        socket_.async_receive_from(
+                    boost::asio::buffer(recv_buffer_), remote_endpoint_,
+                    boost::bind(&udp_server::handle_receive, this,
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
+        std::cout << "receiv data: " << std::string(recv_buffer_.begin(), recv_buffer_.end()) << recv_buffer_.size() << std::endl;
+    }
+
+    void handle_receive(const boost::system::error_code& error,
+                std::size_t /*bytes_transferred*/)
+    {
+        if (!error || error == boost::asio::error::message_size)
+        {
+            boost::shared_ptr<std::string> message(new std::string("***********"));
+
+            socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                          boost::bind(&udp_server::handle_send, this, message,
+                              boost::asio::placeholders::error,
+                              boost::asio::placeholders::bytes_transferred));
+            std::cout << "handle_receive " << remote_endpoint_ << std::endl;
+            start_receive();
+        }
+    }
+
+    void handle_send(boost::shared_ptr<std::string> message,
+             const boost::system::error_code& /*error*/,
+             std::size_t /*bytes_transferred*/)
+    {
+        std::cout << "sended: " << *message << std::endl;
+    }
+
+    void send_ping()
+    {
+
+        boost::shared_ptr<std::string> msg(new std::string("*****"));
+        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
+        socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
+                      boost::bind(&udp_server::handle_send, this, msg,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+        t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
+        t.async_wait(boost::bind(&udp_server::send_ping, this));
+    }
+    boost::asio::ip::udp::socket socket_;
+    boost::asio::ip::udp::endpoint remote_endpoint_;
+    boost::array<char, 1> recv_buffer_;
+    boost::asio::deadline_timer t;
 };
 
 int main(int argc, char *argv[]) {
@@ -213,10 +213,8 @@ int main(int argc, char *argv[]) {
 //            std::cout << "new connection: " << std::endl;
         }
 
-    } else if(my_ip == KALI_MACHINE) {
-        std::cout << KALI_MACHINE << std::endl;
-        create_packet();
-    } else {
+    } else if(my_ip == MY_MACHINE) {
+        std::cout << "MY MACHINE" << std::endl;
         char buff[1024];
         boost::asio::io_service service;
 //        socket_ptr sock(new boost::asio::ip::tcp::socket(service));
@@ -251,6 +249,10 @@ int main(int argc, char *argv[]) {
 //            sock_2->receive(boost::asio::buffer(buff));
 //            std::cout << buff << std::endl;
 //        }
+    } else {
+        std::cout << "ANOTHER MACHINE" << std::endl;
+        create_packet();
+
 
     }    
     return 0;
