@@ -166,7 +166,7 @@ class udp_server
         void send_ping() 
         {
             
-            boost::shared_ptr<std::string> msg(new std::string("***PING***"));
+            boost::shared_ptr<std::string> msg(new std::string("*****"));
             boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
             socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
                   boost::bind(&udp_server::handle_send, this, msg,
