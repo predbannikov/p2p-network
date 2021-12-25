@@ -27,7 +27,7 @@ using namespace boost::asio;
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 class Client;
 
-std::mutex mtx_rwfile;
+std::mutex 	mtx_rwfile;
 std::string my_ip;
 
 boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
@@ -66,7 +66,10 @@ std::string load_data() {
 }
 
 boost::json::value load_json() {
-    boost::json::value value = boost::json::parse(load_data());
+    std::string str_data = load_data();
+    if(str_data.empty())
+        return boost::json::value();
+    boost::json::value value = boost::json::parse(str_data);
     return value;
 }
 
@@ -83,12 +86,12 @@ void save_json(boost::json::object &jobj) {
 
 void added_new_machine(std::string ip_str, std::string port_str) {
     boost::json::value jvalue = load_json();
-    boost::json::object jobj = jvalue.as_object();
+    boost::json::object jobj;
+    if(!jvalue.is_null())
+        jobj = jvalue.as_object();
     if(jobj.contains(ip_str))
         jobj.erase(ip_str);
-
     jobj.emplace(ip_str, port_str);
-    std::cout << jobj << std::endl;
     save_json(jobj);
 }
 
@@ -175,15 +178,14 @@ public:
                             boost::asio::placeholders::bytes_transferred));
     }
 
-    void handle_receive(const boost::system::error_code& error,
-                std::size_t bytes_transferred)
+    void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred)
     {
         if (!error || error == boost::asio::error::message_size)
         {
             added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
             std::string msg = std::string(buff, bytes_transferred);
             std::cout << msg << std::endl;
-
+            parser(&msg);
             start_receive();
         }
     }
@@ -212,7 +214,6 @@ public:
     }
     boost::asio::ip::udp::socket socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
-    boost::array<char, 1> recv_buffer_;
     char buff[1024];
     boost::asio::deadline_timer t;
 };
@@ -226,11 +227,6 @@ public:
     }
     virtual void parser(std::string *msg) override {
         std::cout << msg << std::endl;
-        if(*msg == "list") {
-            std::cout << "listing" << std::endl;
-        } else if(*msg == "connect") {
-            std::cout << "connected" << std::endl;
-        }
         boost::shared_ptr<std::string> message(new std::string);
         if(*msg == "list") {
             boost::json::value jvalue = boost::json::parse(load_data());
@@ -251,22 +247,19 @@ public:
 
 class Client : public udp_server {
 public:
-    Client(boost::asio::io_service& io_service, int port)
-        : udp_server(io_service, port) {
-        if(my_ip != SIGNAL_SERVER) {
-            //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
-            //boost::system::error_code ec;
-            //t.async_wait(boost::bind(&udp_server::send_ping, this));
-            remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
-        }
+    Client(boost::asio::io_service& io_service, int port) : udp_server(io_service, port) {
+        //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
+        //boost::system::error_code ec;
+        //t.async_wait(boost::bind(&udp_server::send_ping, this));
+        remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
         start_receive();
-
     }
     virtual void parser(std::string *msg) override {
         std::cout << msg << std::endl;
-        if(*msg == "LIST") {
-            boost::json::value jvalue = boost::json::parse(*msg);
-            std::cout << "listing" << std::endl;
+        boost::json::value jobj = boost::json::parse(*msg).as_object();
+        if(jobj.at("response").as_string() == "OK") {
+            boost::json::value jmsg = jobj.at("msg").as_object();
+            std::cout << jmsg << std::endl;
         } else if(*msg == "connect") {
             std::cout << "connected" << std::endl;
         }
@@ -276,7 +269,7 @@ public:
         boost::shared_ptr<std::string> msg(new std::string);
         std::cin >> *msg;
         socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
-                      boost::bind(&udp_server::handle_send, this, msg,
+                      boost::bind(&Client::handle_send, this, msg,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
 

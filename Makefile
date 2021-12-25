@@ -1,6 +1,6 @@
 BOOST_ROOT = /usr/include/boost_1_78_0
 BOOST_INC = ${BOOST_ROOT}/include
-CXXFLAGS = -g -O0 -std=c++17
+CXXFLAGS = -g -O2 -std=c++17
 all_files = p2p-network.o raw-to.o
 all_arguments = -pthread -lboost_system -lboost_thread -lboost_filesystem
 TARGET = p2p-network
