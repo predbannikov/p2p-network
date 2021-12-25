@@ -13,16 +13,19 @@
 #include <boost/asio.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/json/src.hpp>
+#include <boost/json/basic_parser_impl.hpp>
+#include <iomanip>
+#include <iostream>
 #include <mutex>
 #include <thread>
 #include "raw-to.h"
 
-using namespace boost::asio;
+using namespace boost::asio::ip;
 
-#define PATH_JSON   "map-address"
+#define PATH_JSON   	"map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
-#define SERVER_PORT 50003
-#define MY_MACHINE	"192.168.0.101"
+#define SERVER_PORT 	50003
+#define MY_MACHINE		"192.168.0.101"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 class Client;
@@ -51,6 +54,79 @@ std::string get_string_myip() {
     return string_ip;
 }
 
+
+//#include "file.hpp"
+
+using namespace boost::json;
+
+// The null parser discards all the data
+class null_parser
+{
+    struct handler
+    {
+        constexpr static std::size_t max_object_size = std::size_t(-1);
+        constexpr static std::size_t max_array_size = std::size_t(-1);
+        constexpr static std::size_t max_key_size = std::size_t(-1);
+        constexpr static std::size_t max_string_size = std::size_t(-1);
+
+        bool on_document_begin( error_code& ) { return true; }
+        bool on_document_end( error_code& ) { return true; }
+        bool on_object_begin( error_code& ) { return true; }
+        bool on_object_end( std::size_t, error_code& ) { return true; }
+        bool on_array_begin( error_code& ) { return true; }
+        bool on_array_end( std::size_t, error_code& ) { return true; }
+        bool on_key_part( string_view, std::size_t, error_code& ) { return true; }
+        bool on_key( string_view, std::size_t, error_code& ) { return true; }
+        bool on_string_part( string_view, std::size_t, error_code& ) { return true; }
+        bool on_string( string_view, std::size_t, error_code& ) { return true; }
+        bool on_number_part( string_view, error_code& ) { return true; }
+        bool on_int64( std::int64_t, string_view, error_code& ) { return true; }
+        bool on_uint64( std::uint64_t, string_view, error_code& ) { return true; }
+        bool on_double( double, string_view, error_code& ) { return true; }
+        bool on_bool( bool, error_code& ) { return true; }
+        bool on_null( error_code& ) { return true; }
+        bool on_comment_part(string_view, error_code&) { return true; }
+        bool on_comment(string_view, error_code&) { return true; }
+    };
+
+    basic_parser<handler> p_;
+
+public:
+    null_parser()
+        : p_(parse_options())
+    {
+    }
+
+    ~null_parser()
+    {
+    }
+
+    std::size_t
+    write(
+        char const* data,
+        std::size_t size,
+        error_code& ec)
+    {
+        auto const n = p_.write_some( false, data, size, ec );
+        if(! ec && n < size)
+            ec = error::extra_data;
+        return n;
+    }
+};
+
+bool validate( string_view s )
+{
+    // Parse with the null parser and return false on error
+    null_parser p;
+    error_code ec;
+    p.write( s.data(), s.size(), ec );
+    if( ec )
+        return false;
+
+    // The string is valid JSON.
+    return true;
+}
+
 std::string load_data() {
     std::lock_guard<std::mutex> lock(mtx_rwfile);
     std::ifstream file(PATH_JSON);
@@ -69,6 +145,11 @@ boost::json::value load_json() {
     std::string str_data = load_data();
     if(str_data.empty())
         return boost::json::value();
+    const auto valid = validate(str_data);
+    if(!valid) {
+        std::cout << "json data of " << boost::filesystem::absolute(PATH_JSON)  << " is not valid" << std::endl;
+        exit(-1);
+    }
     boost::json::value value = boost::json::parse(str_data);
     return value;
 }
@@ -182,9 +263,7 @@ public:
     {
         if (!error || error == boost::asio::error::message_size)
         {
-            added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
             std::string msg = std::string(buff, bytes_transferred);
-            std::cout << msg << std::endl;
             parser(&msg);
             start_receive();
         }
@@ -194,7 +273,7 @@ public:
              const boost::system::error_code& /*error*/,
              std::size_t /*bytes_transferred*/)
     {
-        std::cout << "sended: " << *message << " | " << remote_endpoint_ << std::endl;
+        std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << std::endl;
     }
 
     virtual void parser(std::string *msg){}
@@ -226,7 +305,8 @@ public:
         start_receive();
     }
     virtual void parser(std::string *msg) override {
-        std::cout << msg << std::endl;
+        added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
+        std::cout << *msg << std::endl;
         boost::shared_ptr<std::string> message(new std::string);
         if(*msg == "list") {
             boost::json::value jvalue = boost::json::parse(load_data());
@@ -238,7 +318,7 @@ public:
             message->append("#PING#");
         }
         socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                      boost::bind(&udp_server::handle_send, this, message,
+                      boost::bind(&StunServer::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
         std::cout << "handle_receive " << remote_endpoint_ << std::endl;
@@ -255,13 +335,26 @@ public:
         start_receive();
     }
     virtual void parser(std::string *msg) override {
-        std::cout << msg << std::endl;
-        boost::json::value jobj = boost::json::parse(*msg).as_object();
-        if(jobj.at("response").as_string() == "OK") {
-            boost::json::value jmsg = jobj.at("msg").as_object();
-            std::cout << jmsg << std::endl;
-        } else if(*msg == "connect") {
-            std::cout << "connected" << std::endl;
+        auto const valid = validate(*msg);
+        if(valid) {
+            boost::json::value jvalue = boost::json::parse(*msg);
+            boost::json::value jobj = boost::json::parse(*msg).as_object();
+            if(jobj.at("response").as_string() == "OK") {
+                boost::json::object jmsg = jobj.at("msg").as_object();
+                std::cout << "\nOK." << std::endl;
+                int counter = 0;
+                std::cout << "List machines: " << std::endl;
+                for(auto &item: jmsg) {
+                    if(item.key() == my_ip)
+                        continue;
+                    std::cout << counter << ". " << item.key() << ":" << item.value() << std::endl;
+                    counter++;
+                }
+            } else  {
+                std::cout << "not correct request" << std::endl;
+            }
+        } else {
+            std::cout << "Response data not valid " << *msg << std::endl;
         }
     }
 
@@ -282,9 +375,6 @@ int main(int argc, char *argv[]) {
     std::cout << "start programm" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
-    added_new_machine(my_ip, std::to_string(50001));
-    check_machine(my_ip);
-    remove_machine(my_ip + "*");
     if(my_ip == SIGNAL_SERVER) {
             boost::asio::io_service io_service;
             StunServer userv(io_service, 50003);
@@ -347,8 +437,5 @@ void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
         std::this_thread::sleep_for(std::chrono::milliseconds(timewait));
        
     }
-   
-    
-
 }
 
