@@ -164,8 +164,8 @@ public:
         start_receive();
         if(my_ip != SIGNAL_SERVER) {
             //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
-            boost::system::error_code ec;
-            t.async_wait(boost::bind(&udp_server::send_ping, this));
+            //boost::system::error_code ec;
+            //t.async_wait(boost::bind(&udp_server::send_ping, this));
         }
     }
 
