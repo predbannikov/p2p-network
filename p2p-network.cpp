@@ -21,11 +21,11 @@ using namespace boost::asio;
 
 #define PATH_JSON   "map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
-//#define SIGNAL_SERVER   "192.168.0.101"
-#define SERVER_PORT     2001
+#define SERVER_PORT 50003
 #define MY_MACHINE	"192.168.0.101"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
+class Client;
 
 std::mutex mtx_rwfile;
 std::string my_ip;
@@ -33,7 +33,7 @@ std::string my_ip;
 boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 
-void client_session(socket_ptr sock);
+void client_session(Client*);
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
 void remove_machine(std::string ip_str);
 
@@ -161,42 +161,29 @@ public:
     udp_server(boost::asio::io_service& io_service, int port)
         : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), t(io_service, boost::posix_time::seconds(1))
     {
-        start_receive();
-        if(my_ip != SIGNAL_SERVER) {
-            //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
-            //boost::system::error_code ec;
-            //t.async_wait(boost::bind(&udp_server::send_ping, this));
-        }
     }
 
 private:
+public:
     void start_receive()
     {
+
         socket_.async_receive_from(
-                    boost::asio::buffer(recv_buffer_), remote_endpoint_,
+                    boost::asio::buffer(buff), remote_endpoint_,
                     boost::bind(&udp_server::handle_receive, this,
                             boost::asio::placeholders::error,
                             boost::asio::placeholders::bytes_transferred));
     }
 
     void handle_receive(const boost::system::error_code& error,
-                std::size_t /*bytes_transferred*/)
+                std::size_t bytes_transferred)
     {
         if (!error || error == boost::asio::error::message_size)
         {
             added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
-            std::string msg = std::string(recv_buffer_.begin(), recv_buffer_.end());
-            boost::shared_ptr<std::string> message(new std::string);
-            if(msg == "list") {
-                message->append(load_data());
-            } else {
-                message->append("#PING#");
-            }
-            socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                          boost::bind(&udp_server::handle_send, this, message,
-                              boost::asio::placeholders::error,
-                              boost::asio::placeholders::bytes_transferred));
-            std::cout << "handle_receive " << remote_endpoint_ << std::endl;
+            std::string msg = std::string(buff, bytes_transferred);
+            std::cout << msg << std::endl;
+
             start_receive();
         }
     }
@@ -205,12 +192,11 @@ private:
              const boost::system::error_code& /*error*/,
              std::size_t /*bytes_transferred*/)
     {
-        std::cout << "sended: " << *message << std::endl;
+        std::cout << "sended: " << *message << " | " << remote_endpoint_ << std::endl;
     }
 
-    virtual void parser(std::string *msg){
-
-    }
+    virtual void parser(std::string *msg){}
+    virtual void send_msg(){}
 
     void send_ping()
     {
@@ -227,6 +213,7 @@ private:
     boost::asio::ip::udp::socket socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
     boost::array<char, 1> recv_buffer_;
+    char buff[1024];
     boost::asio::deadline_timer t;
 };
 
@@ -235,6 +222,7 @@ public:
     StunServer(boost::asio::io_service& io_service, int port)
         : udp_server(io_service, port) {
 
+        start_receive();
     }
     virtual void parser(std::string *msg) override {
         std::cout << msg << std::endl;
@@ -243,6 +231,55 @@ public:
         } else if(*msg == "connect") {
             std::cout << "connected" << std::endl;
         }
+        boost::shared_ptr<std::string> message(new std::string);
+        if(*msg == "list") {
+            boost::json::value jvalue = boost::json::parse(load_data());
+            boost::json::object jobj;
+            jobj.emplace("response", "OK");
+            jobj["msg"] = jvalue.as_object();
+            message->append(boost::json::serialize(jobj));
+        } else {
+            message->append("#PING#");
+        }
+        socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                      boost::bind(&udp_server::handle_send, this, message,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+        std::cout << "handle_receive " << remote_endpoint_ << std::endl;
+    }
+};
+
+class Client : public udp_server {
+public:
+    Client(boost::asio::io_service& io_service, int port)
+        : udp_server(io_service, port) {
+        if(my_ip != SIGNAL_SERVER) {
+            //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
+            //boost::system::error_code ec;
+            //t.async_wait(boost::bind(&udp_server::send_ping, this));
+            remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
+        }
+        start_receive();
+
+    }
+    virtual void parser(std::string *msg) override {
+        std::cout << msg << std::endl;
+        if(*msg == "LIST") {
+            boost::json::value jvalue = boost::json::parse(*msg);
+            std::cout << "listing" << std::endl;
+        } else if(*msg == "connect") {
+            std::cout << "connected" << std::endl;
+        }
+    }
+
+    virtual void send_msg() override {
+        boost::shared_ptr<std::string> msg(new std::string);
+        std::cin >> *msg;
+        socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
+                      boost::bind(&udp_server::handle_send, this, msg,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+
     }
 
 };
@@ -256,63 +293,17 @@ int main(int argc, char *argv[]) {
     check_machine(my_ip);
     remove_machine(my_ip + "*");
     if(my_ip == SIGNAL_SERVER) {
-
-//        boost::asio::io_service service;
-//        boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), SERVER_PORT);
-//        boost::asio::ip::tcp::acceptor acc(service, ep);
-//        while(true) {
-//            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-//            acc.accept(*sock);
-//            boost::thread(boost::bind(client_session, sock));
-//            //boost::thread(boost::bind(client_session_ping, sock, SERVER_PORT, 3000));
-                        
-            //server(50003);
-
             boost::asio::io_service io_service;
             StunServer userv(io_service, 50003);
-//            boost::thread(boost::bind(server, 50001));
             io_service.run();
-//            boost::thread(boost::bind(server, 2003));
-
-//            std::cout << "new connection: " << std::endl;
-//        }
-
     } else if(my_ip == MY_MACHINE) {
         std::cout << "MY MACHINE" << std::endl;
         char buff[1024];
         boost::asio::io_service service;
-//        socket_ptr sock(new boost::asio::ip::tcp::socket(service));
-//        boost::asio::ip::tcp::endpoint ep_server(boost::asio::ip::address::from_string(SIGNAL_SERVER), 2001);
-//        sock->connect(ep_server);
-//        sock->read_some(boost::asio::buffer(buff));
-//        sock->set_option(boost::asio::ip::tcp::socket::reuse_address(true));
-//
-        udp_server userv(service, 50001);
-        //boost::thread(boost::bind(server, 50001));
-        //server(50001);
-        service.run();
-//        while(true) {
-//            boost::asio::io_service io_service;
-//            std::string sport = std::string(buff);
-//            std::cout << "port: " << sport << std::endl;
-//            unsigned short p = std::stoi(sport);
-//            std::cout << "p = " << p << std::endl;
-//            //boost::thread(boost::bind(client_session_ping, sock, p, 1000));
+        Client userv(service, 50001);
+        boost::thread(boost::bind(&boost::asio::io_service::run, &service));
+        client_session(&userv);
             //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//
-
-            //std::string msg;
-            //std::cin >> msg;
-            //sock->write_some(buffer(msg.c_str(), msg.length()));
-//            socket_ptr sock_2(new boost::asio::ip::tcp::socket(service));
-//            boost::asio::ip::tcp::acceptor acc(service, sock->local_endpoint());
-//            acc.listen();
-//            acc.accept(*sock_2);
-//            std::cout << sock->remote_endpoint() << std::endl;
-//            std::cout << "receive message:" << std::endl;
-//            sock_2->receive(boost::asio::buffer(buff));
-//            std::cout << buff << std::endl;
-//        }
     } else {
         std::cout << "ANOTHER MACHINE" << std::endl;
         create_packet();
@@ -320,38 +311,16 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void client_session(socket_ptr sock)
+void client_session(Client *client)
 {
-    std::cout << "***   client session open   ***" << std::endl;
-    boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
-    boost::json::object jobj = {
-        { "ip", ep.address().to_string() },
-        { "port", ep.port() }
-    };
-    save_json(jobj);
-
-    std::cout << ep << std::endl;
-    std::string port = std::to_string(ep.port());
-    std::cout << "send port: " << port << std::endl;
-    sock->write_some(boost::asio::buffer(port.c_str(), port.length()));
-    boost::system::error_code error;
     try {
-
         while(true) {
-            char data[512];
-            sock->receive(boost::asio::buffer(data));
-            if (error) {
-                std::cout << error.message() << std::endl;
-                break; // Connection refused
-            }
-            std::cout << "ok: " << data << std::endl;
-
+            client->send_msg();
         }
     }
-    catch(...) {
-        std::cout << "catch exception" << error.message() << std::endl;
+    catch(boost::system::error_code ec) {
+        std::cout << "catch exception" << ec.message() << " " << ec.what() << std::endl;
     }
-    std::cout << "iteration ended" << std::endl;
 }
 
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
