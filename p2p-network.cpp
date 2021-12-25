@@ -251,7 +251,6 @@ private:
 public:
     void start_receive()
     {
-
         socket_.async_receive_from(
                     boost::asio::buffer(buff), remote_endpoint_,
                     boost::bind(&udp_server::handle_receive, this,
@@ -276,15 +275,15 @@ public:
         std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << std::endl;
     }
 
-    virtual void parser(std::string *msg){}
-    virtual void send_msg(){}
+    virtual void parser(std::string *msg) {}
+    virtual void send_msg() {}
+    virtual void connect(std::string str_ip, std::string str_port) {}
 
     void send_ping()
     {
-
-        boost::shared_ptr<std::string> msg(new std::string("*****"));
-        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
-        socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
+        boost::shared_ptr<std::string> msg(new std::string("hole punching"));
+//        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
+        socket_.async_send_to(boost::asio::buffer(*msg), remote_endpoint_,
                       boost::bind(&udp_server::handle_send, this, msg,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
@@ -306,16 +305,23 @@ public:
     }
     virtual void parser(std::string *msg) override {
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
-        std::cout << *msg << std::endl;
         boost::shared_ptr<std::string> message(new std::string);
-        if(*msg == "list") {
-            boost::json::value jvalue = boost::json::parse(load_data());
-            boost::json::object jobj;
-            jobj.emplace("response", "OK");
-            jobj["msg"] = jvalue.as_object();
-            message->append(boost::json::serialize(jobj));
+        auto const valid = validate(*msg);
+        if(valid) {
+            boost::json::value jobj = boost::json::parse(*msg).as_object();
+
         } else {
-            message->append("#PING#");
+            if(*msg == "list") {
+                boost::json::value jvalue = boost::json::parse(load_data());
+                boost::json::object jobj;
+                jobj.emplace("response", "OK");
+                jobj["msg"] = jvalue.as_object();
+                message->append(boost::json::serialize(jobj));
+            } else if(*msg == "hole punching") {
+                message->append("Hole punched?");
+            } else {
+                message->append("#PING#");
+            }
         }
         socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
                       boost::bind(&StunServer::handle_send, this, message,
@@ -333,11 +339,11 @@ public:
         //t.async_wait(boost::bind(&udp_server::send_ping, this));
         remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
         start_receive();
+        connect(SIGNAL_SERVER, std::to_string(SERVER_PORT));
     }
     virtual void parser(std::string *msg) override {
         auto const valid = validate(*msg);
         if(valid) {
-            boost::json::value jvalue = boost::json::parse(*msg);
             boost::json::value jobj = boost::json::parse(*msg).as_object();
             if(jobj.at("response").as_string() == "OK") {
                 boost::json::object jmsg = jobj.at("msg").as_object();
@@ -347,13 +353,15 @@ public:
                 for(auto &item: jmsg) {
                     if(item.key() == my_ip)
                         continue;
-                    std::cout << counter << ". " << item.key() << ":" << item.value() << std::endl;
+                    std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
                     counter++;
                 }
             } else  {
                 std::cout << "not correct request" << std::endl;
             }
         } else {
+            if(*msg == "Hole punched?")
+                state_connection = true;
             std::cout << "Response data not valid " << *msg << std::endl;
         }
     }
@@ -365,14 +373,18 @@ public:
                       boost::bind(&Client::handle_send, this, msg,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
-
     }
 
+    virtual void connect(std::string str_ip, std::string str_port) override {
+        if(!state_connection)
+            send_ping();
+    }
+    bool state_connection = false;
 };
 
 int main(int argc, char *argv[]) {
 
-    std::cout << "start programm" << std::endl;
+    std::cout << "*** start programm" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
     if(my_ip == SIGNAL_SERVER) {
