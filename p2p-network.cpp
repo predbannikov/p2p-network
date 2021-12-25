@@ -309,14 +309,16 @@ public:
         auto const valid = validate(*msg);
         if(valid) {
             boost::json::value jobj = boost::json::parse(*msg).as_object();
-
         } else {
+            boost::json::object jobj;
+            jobj.emplace("response", "OK");
             if(*msg == "list") {
                 boost::json::value jvalue = boost::json::parse(load_data());
-                boost::json::object jobj;
-                jobj.emplace("response", "OK");
-                jobj["msg"] = jvalue.as_object();
-                message->append(boost::json::serialize(jobj));
+                jobj["list"] = jvalue.as_object();
+                message->append(serialize(jobj));
+            } else if(*msg == "myip") {
+                jobj["myip"] = remote_endpoint_.address().to_string();
+                message->append(serialize(jobj));
             } else if(*msg == "hole punching") {
                 message->append("Hole punched?");
             } else {
@@ -343,17 +345,21 @@ public:
     virtual void parser(std::string *msg) override {
         auto const valid = validate(*msg);
         if(valid) {
-            boost::json::value jobj = boost::json::parse(*msg).as_object();
+            boost::json::object jobj = boost::json::parse(*msg).as_object();
             if(jobj.at("response").as_string() == "OK") {
-                boost::json::object jmsg = jobj.at("msg").as_object();
-                std::cout << "\nOK." << std::endl;
-                int counter = 0;
-                std::cout << "List machines: " << std::endl;
-                for(auto &item: jmsg) {
-                    if(item.key() == my_ip)
-                        continue;
-                    std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
-                    counter++;
+                if(jobj.contains("list")) {
+                    boost::json::object jmsg = jobj.at("list").as_object();
+                    std::cout << "\nOK." << std::endl;
+                    int counter = 0;
+                    std::cout << "List machines: " << std::endl;
+                    for(auto &item: jmsg) {
+                        if(item.key() == my_ip)
+                            continue;
+                        std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
+                        counter++;
+                    }
+                } else if(jobj.contains("myip")) {
+                    std::cout << "My IP: " << jobj.at("myip").as_string() << std::endl;
                 }
             } else  {
                 std::cout << "not correct request" << std::endl;
