@@ -5,6 +5,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <chrono>
 #include <iostream>
+#include <boost/filesystem.hpp>
 #include <string>
 #include <fstream>
 #include <boost/asio/io_service.hpp>
@@ -34,6 +35,8 @@ boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(
 
 void client_session(socket_ptr sock);
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
+void remove_machine(std::string ip_str);
+
 
 std::string get_string_myip() {
     std::cout  << "getting my ip" << std::endl;
@@ -48,17 +51,22 @@ std::string get_string_myip() {
     return string_ip;
 }
 
-
-boost::json::value load_json() {
+std::string load_data() {
     std::lock_guard<std::mutex> lock(mtx_rwfile);
     std::ifstream file(PATH_JSON);
-    if (!file.is_open()) {
+    if (!file.is_open() || file.fail()) {
         std::cerr << "could not open file to read " << PATH_JSON << std::endl;
-        return boost::json::value();
+        return "";
     }
-    std::string* pstr = new std::string(std::istream_iterator<char>(file), std::istream_iterator<char>());
-    boost::json::value value = boost::json::parse(*pstr);
+    //std::cout << boost::filesystem::current_path() << std::endl;
+    std::stringstream buffer;
+    buffer << file.rdbuf();
     file.close();
+    return buffer.str();
+}
+
+boost::json::value load_json() {
+    boost::json::value value = boost::json::parse(load_data());
     return value;
 }
 
@@ -73,11 +81,40 @@ void save_json(boost::json::object &jobj) {
     file.close();
 }
 
-void added_new_machine(std::string ip_str) {
-    boost::json::object jobj;
-    jobj.emplace("ip", ip_str);
+void added_new_machine(std::string ip_str, std::string port_str) {
+    boost::json::value jvalue = load_json();
+    boost::json::object jobj = jvalue.as_object();
+    if(jobj.contains(ip_str))
+        jobj.erase(ip_str);
+
+    jobj.emplace(ip_str, port_str);
     std::cout << jobj << std::endl;
     save_json(jobj);
+}
+
+bool check_machine(std::string ip_str) {
+    boost::json::value jvalue = load_json();
+    boost::json::object jobj = jvalue.as_object();
+    if(jobj.contains(ip_str))
+        return true;
+    return false;
+}
+
+void remove_machine(std::string ip_str) {
+    if(!check_machine(ip_str))
+        return;
+    boost::json::value jvalue = load_json();
+    boost::json::object jobj = jvalue.as_object();
+
+    for(auto it = jobj.begin(); it != jobj.end(); it++ ) {
+        std::cout << "key=" << it->key() << std::endl;
+        if(it->key() == ip_str) {
+            jobj.erase(it);
+            std::cout << "exist" << std::endl;
+            save_json(jobj);
+            return;
+        }
+    }
 }
  
 void server(unsigned short port)
@@ -140,7 +177,6 @@ private:
                     boost::bind(&udp_server::handle_receive, this,
                             boost::asio::placeholders::error,
                             boost::asio::placeholders::bytes_transferred));
-        std::cout << "receiv data: " << std::string(recv_buffer_.begin(), recv_buffer_.end()) << recv_buffer_.size() << std::endl;
     }
 
     void handle_receive(const boost::system::error_code& error,
@@ -148,8 +184,14 @@ private:
     {
         if (!error || error == boost::asio::error::message_size)
         {
-            boost::shared_ptr<std::string> message(new std::string("***********"));
-
+            added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
+            std::string msg = std::string(recv_buffer_.begin(), recv_buffer_.end());
+            boost::shared_ptr<std::string> message(new std::string);
+            if(msg == "list") {
+                message->append(load_data());
+            } else {
+                message->append("#PING#");
+            }
             socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
                           boost::bind(&udp_server::handle_send, this, message,
                               boost::asio::placeholders::error,
@@ -164,6 +206,10 @@ private:
              std::size_t /*bytes_transferred*/)
     {
         std::cout << "sended: " << *message << std::endl;
+    }
+
+    virtual void parser(std::string *msg){
+
     }
 
     void send_ping()
@@ -184,34 +230,52 @@ private:
     boost::asio::deadline_timer t;
 };
 
+class StunServer : public udp_server {
+public:
+    StunServer(boost::asio::io_service& io_service, int port)
+        : udp_server(io_service, port) {
+
+    }
+    virtual void parser(std::string *msg) override {
+        std::cout << msg << std::endl;
+        if(*msg == "list") {
+            std::cout << "listing" << std::endl;
+        } else if(*msg == "connect") {
+            std::cout << "connected" << std::endl;
+        }
+    }
+
+};
+
 int main(int argc, char *argv[]) {
 
     std::cout << "start programm" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
-    added_new_machine(my_ip);
-
+    added_new_machine(my_ip, std::to_string(50001));
+    check_machine(my_ip);
+    remove_machine(my_ip + "*");
     if(my_ip == SIGNAL_SERVER) {
 
 //        boost::asio::io_service service;
 //        boost::asio::ip::tcp::endpoint ep(boost::asio::ip::tcp::v4(), SERVER_PORT);
 //        boost::asio::ip::tcp::acceptor acc(service, ep);
-        while(true) {
+//        while(true) {
 //            socket_ptr sock(new boost::asio::ip::tcp::socket(service));
 //            acc.accept(*sock);
 //            boost::thread(boost::bind(client_session, sock));
 //            //boost::thread(boost::bind(client_session_ping, sock, SERVER_PORT, 3000));
                         
-            server(50003);
+            //server(50003);
 
-//            boost::asio::io_service io_service;
-            //udp_server userv(io_service, 50003);
+            boost::asio::io_service io_service;
+            StunServer userv(io_service, 50003);
 //            boost::thread(boost::bind(server, 50001));
-//            io_service.run();
+            io_service.run();
 //            boost::thread(boost::bind(server, 2003));
 
 //            std::cout << "new connection: " << std::endl;
-        }
+//        }
 
     } else if(my_ip == MY_MACHINE) {
         std::cout << "MY MACHINE" << std::endl;
@@ -252,8 +316,6 @@ int main(int argc, char *argv[]) {
     } else {
         std::cout << "ANOTHER MACHINE" << std::endl;
         create_packet();
-
-
     }    
     return 0;
 }
