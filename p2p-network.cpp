@@ -279,7 +279,7 @@ public:
     virtual void send_msg() {}
     virtual void connect(std::string str_ip, std::string str_port) {}
 
-    void send_ping()
+    void send_ping(std::string str_ip, std::string str_port)
     {
         boost::shared_ptr<std::string> msg(new std::string("hole punching"));
 //        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
@@ -288,7 +288,7 @@ public:
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
         t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
-        t.async_wait(boost::bind(&udp_server::send_ping, this));
+        t.async_wait(boost::bind(&udp_server::connect, this, str_ip, str_port));
     }
     boost::asio::ip::udp::socket socket_;
     boost::asio::ip::udp::endpoint remote_endpoint_;
@@ -327,7 +327,6 @@ public:
                       boost::bind(&StunServer::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
-        std::cout << "handle_receive " << remote_endpoint_ << std::endl;
     }
 };
 
@@ -360,9 +359,12 @@ public:
                 std::cout << "not correct request" << std::endl;
             }
         } else {
-            if(*msg == "Hole punched?")
+            if(*msg == "Hole punched?") {
                 state_connection = true;
-            std::cout << "Response data not valid " << *msg << std::endl;
+                std::cout << "RESPONSE: " << *msg << "\nOk. punching stop \n" << std::endl;
+            } else {
+                std::cout << "Response data not valid " << *msg << std::endl;
+            }
         }
     }
 
@@ -377,14 +379,14 @@ public:
 
     virtual void connect(std::string str_ip, std::string str_port) override {
         if(!state_connection)
-            send_ping();
+            send_ping(str_ip, str_port);
     }
     bool state_connection = false;
 };
 
 int main(int argc, char *argv[]) {
 
-    std::cout << "*** start programm" << std::endl;
+    std::cout << "*** start programm ***" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
     if(my_ip == SIGNAL_SERVER) {
