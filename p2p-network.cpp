@@ -393,18 +393,15 @@ int main(int argc, char *argv[]) {
             boost::asio::io_service io_service;
             StunServer userv(io_service, 50003);
             io_service.run();
-    } else if(my_ip == MY_MACHINE) {
-        std::cout << "MY MACHINE" << std::endl;
+    } else {
+        std::cout << "CLIENT MACHINE" << std::endl;
         char buff[1024];
         boost::asio::io_service service;
         Client userv(service, 50001);
         boost::thread(boost::bind(&boost::asio::io_service::run, &service));
         client_session(&userv);
-            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    } else {
-        std::cout << "ANOTHER MACHINE" << std::endl;
-        create_packet();
-    }    
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
     return 0;
 }
 
