@@ -317,7 +317,7 @@ public:
                 jobj["list"] = jvalue.as_object();
                 message->append(serialize(jobj));
             } else if(*msg == "myip") {
-                jobj["myip"] = remote_endpoint_.address().to_string();
+                jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                 message->append(serialize(jobj));
             } else if(*msg == "hole punching") {
                 message->append("Hole punched?");
@@ -347,9 +347,10 @@ public:
         if(valid) {
             boost::json::object jobj = boost::json::parse(*msg).as_object();
             if(jobj.at("response").as_string() == "OK") {
+                std::cout << "OK." << std::endl;
+
                 if(jobj.contains("list")) {
                     boost::json::object jmsg = jobj.at("list").as_object();
-                    std::cout << "\nOK." << std::endl;
                     int counter = 0;
                     std::cout << "List machines: " << std::endl;
                     for(auto &item: jmsg) {
@@ -359,7 +360,7 @@ public:
                         counter++;
                     }
                 } else if(jobj.contains("myip")) {
-                    std::cout << "My IP: " << jobj.at("myip").as_string() << std::endl;
+                    std::cout << "Ext IP: " << jobj.at("myip").as_string() << std::endl;
                 }
             } else  {
                 std::cout << "not correct request" << std::endl;
@@ -372,10 +373,12 @@ public:
                 std::cout << "Response data not valid " << *msg << std::endl;
             }
         }
+        std::cout << std::endl;
     }
 
     virtual void send_msg() override {
         boost::shared_ptr<std::string> msg(new std::string);
+        //std::cout << std::endl;
         std::cin >> *msg;
         socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
                       boost::bind(&Client::handle_send, this, msg,
