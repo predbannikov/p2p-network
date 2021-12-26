@@ -315,7 +315,7 @@ public:
                     jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                 }
             }
-            message->append(serialize(jobj));
+            message->append(serialize(jresponse));
         } else {
             if(*msg == "list") {
 //                boost::json::value jvalue = boost::json::parse(load_data());
