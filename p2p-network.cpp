@@ -307,24 +307,26 @@ public:
         if(valid) {
             boost::json::object jobj = boost::json::parse(*msg).as_object();
             if(jobj.contains("request")) {
-                boost::json::string str_req = jobj.at("request").as_string();
-                if(str_req == "list") {
-                    boost::json::value jvalue = boost::json::parse(load_data());
-                    jresponse.emplace("list", jvalue.as_object());
-                } else if (str_req == "myip") {
-                    jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                if(jobj.at("request").as_object().contains("command")) {
+                    boost::json::object jrequest = jobj.at("request").as_object();
+                    boost::json::string str_req = jrequest.at("command").as_string();
+                    if(str_req == "list") {
+                        boost::json::value jvalue = boost::json::parse(load_data());
+                        jresponse.emplace("list", jvalue.as_object());
+                    } else if (str_req == "myip") {
+                        jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                    }
+                } else {
+                    std::cout << "package not contain key command" << std::endl;
                 }
+            } else {
+                std::cout << "package not contain key request" << std::endl;
             }
             message->append(serialize(jresponse));
         } else {
             if(*msg == "list") {
-//                boost::json::value jvalue = boost::json::parse(load_data());
-//                jobj["list"] = jvalue.as_object();
-//                message->append(serialize(jobj));
                 std::cout << "raw list not working" << std::endl;
             } else if(*msg == "myip") {
-//                jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
-//                message->append(serialize(jobj));
                 std::cout << "raw myip not working" << std::endl;
             } else if(*msg == "hole punching") {
                 message->append("Hole punched?");
@@ -380,24 +382,52 @@ public:
                 std::cout << "Response data not valid " << *msg << std::endl;
             }
         }
-        std::cout << std::endl << socket_.local_endpoint() << std::endl;
+        std::cout << std::endl << socket_.local_endpoint() << "\n>" << std::flush;
     }
 
     virtual void send_msg() override {
+        std::vector<std::string> args;
         boost::shared_ptr<std::string> msg(new std::string);
-        std::cin >> *msg;
-        send_pack(*msg, std::string());
-        //socket_.async_send_to(boost::asio::buffer(*msg), server_uep, boost::bind(&Client::handle_send, this, msg, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+        std::getline(std::cin, *msg);
+        std::istringstream is(*msg);
+        int argc = 0;
+        while (is) {
+            std::string word;
+            is >> word;
+            if(argc != 0 && !word.empty())
+                args.push_back(word);
+            argc++;
+        }
+        boost::json::array jdata;
+        for(size_t i = 0; i < args.size(); i++)
+            jdata.emplace_back(args[i]);
+        send_request(*msg, jdata);
     }
 
-    void send_msg(std::string &msg, std::string &data) {
+    void send_request(std::string &cmd, boost::json::array &jdata) {
+        boost::json::object jrequest;
+        switch (state_connect) {
+        case STATE_CONNECT_STUN:
+            if(cmd == "list")
+                jrequest["command"] = cmd;
+            else if(cmd == "connect") {
+
+            }
+            break;
+        case STATE_CONNECT_CLIENT:
+
+            break;
+        default:
+            std::cout << "STATE_CONNECT default case" << std::endl;
+        }
+        send_pack(jrequest, jdata);
     }
 
-    void send_pack(std::string str, const std::string &data) {
+    void send_pack(boost::json::object &jrequest, boost::json::array &jdata) {
         boost::json::object jobj;
-        jobj["request"] = str;
-        if(!data.empty())
-            jobj["data"] = data;
+        jobj["request"] = jrequest;
+        if(!jdata.empty())
+            jobj["data"] = jdata;
         boost::shared_ptr<std::string> serialise_data(new std::string);
         serialise_data->append(boost::json::serialize(jobj));
         socket_.async_send_to(boost::asio::buffer(*serialise_data), server_uep,
@@ -412,10 +442,13 @@ public:
     }
 
     void proc_init_p2p() {
-        std::string msg;
+        std::string cmd;
+        std::string data;
         switch (state_conn_p2p) {
         case STATE_SYN:
-            msg = "machine 1";
+            cmd = "machine 1";
+            data = "SYN";
+            //send_pack(cmd, data);
             break;
         case STATE_ACK:
             break;
@@ -426,6 +459,10 @@ public:
         t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
         t.async_wait(boost::bind(&Client::proc_init_p2p, this));
     }
+
+    enum STATE_CONNECT {
+        STATE_CONNECT_STUN, STATE_CONNECT_CLIENT
+    } state_connect = STATE_CONNECT_STUN;
 
     enum STATE_CONN_P2P {
         STATE_SYN, STATE_ACK
@@ -450,7 +487,6 @@ int main(int argc, char *argv[]) {
         Client userv(service, 50001);
         boost::thread(boost::bind(&boost::asio::io_service::run, &service));
         client_session(&userv);
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
     return 0;
 }
