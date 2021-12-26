@@ -20,7 +20,8 @@
 #include <thread>
 #include "raw-to.h"
 
-using namespace boost::asio::ip;
+//using namespace boost::asio::ip;
+//using namespace boost::json;
 
 #define PATH_JSON   	"map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
@@ -54,11 +55,6 @@ std::string get_string_myip() {
     return string_ip;
 }
 
-
-//#include "file.hpp"
-
-using namespace boost::json;
-
 // The null parser discards all the data
 class null_parser
 {
@@ -69,31 +65,31 @@ class null_parser
         constexpr static std::size_t max_key_size = std::size_t(-1);
         constexpr static std::size_t max_string_size = std::size_t(-1);
 
-        bool on_document_begin( error_code& ) { return true; }
-        bool on_document_end( error_code& ) { return true; }
-        bool on_object_begin( error_code& ) { return true; }
-        bool on_object_end( std::size_t, error_code& ) { return true; }
-        bool on_array_begin( error_code& ) { return true; }
-        bool on_array_end( std::size_t, error_code& ) { return true; }
-        bool on_key_part( string_view, std::size_t, error_code& ) { return true; }
-        bool on_key( string_view, std::size_t, error_code& ) { return true; }
-        bool on_string_part( string_view, std::size_t, error_code& ) { return true; }
-        bool on_string( string_view, std::size_t, error_code& ) { return true; }
-        bool on_number_part( string_view, error_code& ) { return true; }
-        bool on_int64( std::int64_t, string_view, error_code& ) { return true; }
-        bool on_uint64( std::uint64_t, string_view, error_code& ) { return true; }
-        bool on_double( double, string_view, error_code& ) { return true; }
-        bool on_bool( bool, error_code& ) { return true; }
-        bool on_null( error_code& ) { return true; }
-        bool on_comment_part(string_view, error_code&) { return true; }
-        bool on_comment(string_view, error_code&) { return true; }
+        bool on_document_begin( boost::json::error_code& ) { return true; }
+        bool on_document_end( boost::json::error_code& ) { return true; }
+        bool on_object_begin( boost::json::error_code& ) { return true; }
+        bool on_object_end( std::size_t, boost::json::error_code& ) { return true; }
+        bool on_array_begin( boost::json::error_code& ) { return true; }
+        bool on_array_end( std::size_t, boost::json::error_code& ) { return true; }
+        bool on_key_part( boost::json::string_view, std::size_t, boost::json::error_code& ) { return true; }
+        bool on_key( boost::json::string_view, std::size_t, boost::json::error_code& ) { return true; }
+        bool on_string_part( boost::json::string_view, std::size_t, boost::json::error_code& ) { return true; }
+        bool on_string( boost::json::string_view, std::size_t, boost::json::error_code& ) { return true; }
+        bool on_number_part( boost::json::string_view, boost::json::error_code& ) { return true; }
+        bool on_int64( std::int64_t, boost::json::string_view, boost::json::error_code& ) { return true; }
+        bool on_uint64( std::uint64_t, boost::json::string_view, boost::json::error_code& ) { return true; }
+        bool on_double( double, boost::json::string_view, boost::json::error_code& ) { return true; }
+        bool on_bool( bool, boost::json::error_code& ) { return true; }
+        bool on_null( boost::json::error_code& ) { return true; }
+        bool on_comment_part(boost::json::string_view, boost::json::error_code&) { return true; }
+        bool on_comment(boost::json::string_view, boost::json::error_code&) { return true; }
     };
 
-    basic_parser<handler> p_;
+    boost::json::basic_parser<handler> p_;
 
 public:
     null_parser()
-        : p_(parse_options())
+        : p_(boost::json::parse_options())
     {
     }
 
@@ -105,20 +101,20 @@ public:
     write(
         char const* data,
         std::size_t size,
-        error_code& ec)
+        boost::json::error_code& ec)
     {
         auto const n = p_.write_some( false, data, size, ec );
         if(! ec && n < size)
-            ec = error::extra_data;
+            ec = boost::json::error::extra_data;
         return n;
     }
 };
 
-bool validate( string_view s )
+bool validate( boost::json::string_view s )
 {
     // Parse with the null parser and return false on error
     null_parser p;
-    error_code ec;
+    boost::json::error_code ec;
     p.write( s.data(), s.size(), ec );
     if( ec )
         return false;
@@ -373,23 +369,60 @@ public:
                 std::cout << "Response data not valid " << *msg << std::endl;
             }
         }
-        std::cout << std::endl;
+        std::cout << socket_.local_endpoint() << std::endl;
     }
 
     virtual void send_msg() override {
         boost::shared_ptr<std::string> msg(new std::string);
-        //std::cout << std::endl;
         std::cin >> *msg;
+        send_pack(*msg, std::string());
         socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
                       boost::bind(&Client::handle_send, this, msg,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
     }
 
+    void send_msg(std::string &msg, std::string &data) {
+    }
+
+    void send_pack(std::string str, const std::string &data) {
+        boost::json::object jobj;
+        jobj["request"] = str;
+        if(!data.empty())
+            jobj["data"] = data;
+        boost::shared_ptr<std::string> serialise_data(new std::string);
+        serialise_data->append(boost::json::serialize(jobj));
+        socket_.async_send_to(boost::asio::buffer(*serialise_data), server_uep,
+                     boost::bind(&Client::handle_send, this, serialise_data,
+                         boost::asio::placeholders::error,
+                         boost::asio::placeholders::bytes_transferred));
+    }
+
     virtual void connect(std::string str_ip, std::string str_port) override {
         if(!state_connection)
             send_ping(str_ip, str_port);
     }
+
+    void proc_init_p2p() {
+        std::string msg;
+        switch (state_conn_p2p) {
+        case STATE_SYN:
+            msg = "machine 1";
+            break;
+        case STATE_ACK:
+            break;
+        default:
+            return;
+        }
+
+        t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
+        t.async_wait(boost::bind(&Client::proc_init_p2p, this));
+    }
+
+    enum STATE_CONN_P2P {
+        STATE_SYN, STATE_ACK
+    } state_conn_p2p;
+
     bool state_connection = false;
 };
 
