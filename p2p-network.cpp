@@ -302,21 +302,20 @@ public:
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
-        boost::json::object jobj;
-        jobj.emplace("response", "OK");
+        boost::json::object jresponse;
+        jresponse.emplace("response", "OK");
         if(valid) {
             boost::json::object jobj = boost::json::parse(*msg).as_object();
             if(jobj.contains("request")) {
                 boost::json::string str_req = jobj.at("request").as_string();
                 if(str_req == "list") {
                     boost::json::value jvalue = boost::json::parse(load_data());
-                    jobj["list"] = jvalue.as_object();
-                    message->append(serialize(jobj));
+                    jresponse.emplace("list", jvalue.as_object());
                 } else if (str_req == "myip") {
-                    jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
-                    message->append(serialize(jobj));
+                    jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                 }
             }
+            message->append(serialize(jobj));
         } else {
             if(*msg == "list") {
 //                boost::json::value jvalue = boost::json::parse(load_data());
