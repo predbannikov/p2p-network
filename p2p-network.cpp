@@ -43,7 +43,6 @@ void remove_machine(std::string ip_str);
 
 
 std::string get_string_myip() {
-    std::cout  << "getting my ip" << std::endl;
     boost::asio::io_service service;
     boost::asio::ip::udp::resolver resolver(service);
     boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), "google.com", "");
@@ -308,12 +307,12 @@ public:
         if(valid) {
             boost::json::object jobj = boost::json::parse(*msg).as_object();
             if(jobj.contains("request")) {
-                boost::json::object jreq = boost::json::parse(jobj.at("request").as_string()).as_object();
-                if(jreq.contains("list")) {
+                boost::json::string str_req = jobj.at("request").as_string();
+                if(str_req == "list") {
                     boost::json::value jvalue = boost::json::parse(load_data());
                     jobj["list"] = jvalue.as_object();
                     message->append(serialize(jobj));
-                } else if (jreq.contains("myip")) {
+                } else if (str_req == "myip") {
                     jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                     message->append(serialize(jobj));
                 }
