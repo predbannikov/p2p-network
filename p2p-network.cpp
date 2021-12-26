@@ -303,18 +303,31 @@ public:
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
+        boost::json::object jobj;
+        jobj.emplace("response", "OK");
         if(valid) {
-            boost::json::value jobj = boost::json::parse(*msg).as_object();
+            boost::json::object jobj = boost::json::parse(*msg).as_object();
+            if(jobj.contains("request")) {
+                boost::json::object jreq = boost::json::parse(jobj.at("request").as_string()).as_object();
+                if(jreq.contains("list")) {
+                    boost::json::value jvalue = boost::json::parse(load_data());
+                    jobj["list"] = jvalue.as_object();
+                    message->append(serialize(jobj));
+                } else if (jreq.contains("myip")) {
+                    jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                    message->append(serialize(jobj));
+                }
+            }
         } else {
-            boost::json::object jobj;
-            jobj.emplace("response", "OK");
             if(*msg == "list") {
-                boost::json::value jvalue = boost::json::parse(load_data());
-                jobj["list"] = jvalue.as_object();
-                message->append(serialize(jobj));
+//                boost::json::value jvalue = boost::json::parse(load_data());
+//                jobj["list"] = jvalue.as_object();
+//                message->append(serialize(jobj));
+                std::cout << "raw list not working" << std::endl;
             } else if(*msg == "myip") {
-                jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
-                message->append(serialize(jobj));
+//                jobj["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+//                message->append(serialize(jobj));
+                std::cout << "raw myip not working" << std::endl;
             } else if(*msg == "hole punching") {
                 message->append("Hole punched?");
             } else {
@@ -376,10 +389,7 @@ public:
         boost::shared_ptr<std::string> msg(new std::string);
         std::cin >> *msg;
         send_pack(*msg, std::string());
-        socket_.async_send_to(boost::asio::buffer(*msg), server_uep,
-                      boost::bind(&Client::handle_send, this, msg,
-                          boost::asio::placeholders::error,
-                          boost::asio::placeholders::bytes_transferred));
+        //socket_.async_send_to(boost::asio::buffer(*msg), server_uep, boost::bind(&Client::handle_send, this, msg, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
     }
 
     void send_msg(std::string &msg, std::string &data) {
@@ -428,7 +438,7 @@ public:
 
 int main(int argc, char *argv[]) {
 
-    std::cout << "*** start programm ***" << std::endl;
+    std::cout << "\n*** start programm ***" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
     if(my_ip == SIGNAL_SERVER) {
