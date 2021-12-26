@@ -369,7 +369,7 @@ public:
                 std::cout << "Response data not valid " << *msg << std::endl;
             }
         }
-        std::cout << socket_.local_endpoint() << std::endl;
+        std::cout << std::endl << socket_.local_endpoint() << std::endl;
     }
 
     virtual void send_msg() override {
