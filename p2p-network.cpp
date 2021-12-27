@@ -288,7 +288,7 @@ public:
                     boost::json::object jresponse;
                     boost::json::object jrequest = jmsg.at("data").as_object();
                     if(jrequest.contains("command")) {
-                        jresponse.emplace("status", "OK");
+                        jresponse.emplace("status", "ok");
                         boost::json::string str_req = jrequest.at("command").as_string();
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
@@ -313,11 +313,11 @@ public:
                         }
                     } else {
                         std::cout << "package not contain key command" << std::endl;
+                        jresponse.emplace("status", "error");
                     }
                     jaction = jresponse;
                     send_pack(jaction, jdata);
-                }
-                if(jmsg.at("action").as_object().contains("response")) {
+                } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
                     if(jresponse.contains("status")) {
                         if(jresponse.at("status").as_string() == "ok") {
@@ -342,6 +342,8 @@ public:
                     if(jresponse.contains("connect")) {
                         std::cout << "connection request with " << jresponse.at("connect").as_string() << std::endl;
                     }
+                } else {
+                    std::cout << "don't known type action" << std::endl;
                 }
             }
 
