@@ -354,13 +354,10 @@ public:
             jobj["data"] = jdata;
         boost::shared_ptr<std::string> serialise_data(new std::string);
         serialise_data->append(boost::json::serialize(jobj));
-        socket_.async_send_to(boost::asio::buffer(*serialise_data), server_uep,
-                     boost::bind(&udp_server::handle_send, this, serialise_data,
-                         boost::asio::placeholders::error,
-                         boost::asio::placeholders::bytes_transferred));
+        sock_send(serialise_data);
     }
 
-    virtual void send_msg() {}
+    virtual void sock_send(boost::shared_ptr<std::string> message) {}
     virtual void connect(std::string str_ip, std::string str_port) {}
 
     void send_ping(std::string str_ip, std::string str_port)
@@ -388,6 +385,14 @@ public:
 
         start_receive();
     }
+    virtual void  sock_send(boost::shared_ptr<std::string> message) override {
+        socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                  boost::bind(&udp_server::handle_send, this, message,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+
+
+    }
 };
 
 class Client : public udp_server {
@@ -401,7 +406,7 @@ public:
         connect(SIGNAL_SERVER, std::to_string(SERVER_PORT));
     }
 
-    virtual void send_msg() override {
+    void send_msg() {
         std::vector<std::string> args;
         std::string msg;
         std::string cmd;
@@ -421,6 +426,15 @@ public:
         for(size_t i = 0; i < args.size(); i++)
             jdata.emplace_back(args[i]);
         send_request(cmd, jdata);
+    }
+
+    virtual void  sock_send(boost::shared_ptr<std::string> message) override {
+        socket_.async_send_to(boost::asio::buffer(*message), server_uep,
+                  boost::bind(&udp_server::handle_send, this, message,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+
+
     }
 
     void send_request(std::string &cmd, boost::json::array &jdata_array) {
