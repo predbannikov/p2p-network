@@ -299,7 +299,7 @@ public:
                         } else if (str_req == "myip") {
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "relay") {
-                            boost::json::object jparameters = jrequest_parse.at("paramaters").as_object();
+                            boost::json::object jparameters = jrequest_parse.at("parameters").as_object();
                             boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))),
                                               std::stoi(boost::json::value_to<std::string>(jparameters.at("PORT"))));
                             boost::json::object jrelay;
@@ -307,6 +307,7 @@ public:
                             boost::json::object jconnect;
                             jconnect.emplace("IP", remote_endpoint_.address().to_string());
                             jconnect.emplace("PORT", std::to_string(remote_endpoint_.port()));
+                            jconnect.emplace("payload", jparameters.at("payload"));
                             jrelay.emplace("data", jconnect);
                             boost::shared_ptr<std::string> relay_ptr(new std::string);
                             *relay_ptr = boost::json::serialize(jrelay);
@@ -321,6 +322,20 @@ public:
                     }
                     jaction.emplace("data",jresponse_msg);
                     send_pack(jaction);
+                } else if(jmsg.at("action").as_string() == "connect") {
+                    boost::json::object jpayload;
+                    jpayload.emplace("status", "ok");
+                    jaction.emplace("action", "request");
+                    boost::json::object jdata = jmsg.at("data").as_object();
+                    boost::json::object jrequest;
+                    jrequest.emplace("command", "relay");
+                    boost::json::object jparameters;
+                    jparameters.emplace("IP", jdata.at("IP"));
+                    jparameters.emplace("PORT", jdata.at("PORT"));
+                    jparameters.emplace("payload", jpayload);
+                    jaction.emplace("data", jparameters);
+
+
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
                     if(jresponse.contains("status")) {
@@ -473,6 +488,7 @@ public:
                         if(i == numberPC) {
                             jparameters.emplace("IP", item.key());
                             jparameters.emplace("PORT", item.value());
+                            jparameters.emplace("payload", "???");
                         }
                         i++;
                     }
