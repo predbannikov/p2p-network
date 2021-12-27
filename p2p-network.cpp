@@ -315,6 +315,18 @@ public:
                         jresponse.emplace("list", jvalue.as_object());
                     } else if (str_req == "myip") {
                         jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                    } else if (str_req == "relay") {
+                        boost::json::object jdata = jobj.at("data").as_object();
+                        boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
+                                          std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
+                        boost::json::object jrelay;
+                        jrelay.emplace("connect", remote_endpoint_.address().to_string());
+                        boost::shared_ptr<std::string> relay_ptr(new std::string);
+                        *relay_ptr = boost::json::serialize(jrelay);
+                        socket_.async_send_to(boost::asio::buffer(*relay_ptr), ep,
+                                  boost::bind(&StunServer::handle_send, this, relay_ptr,
+                                          boost::asio::placeholders::error,
+                                          boost::asio::placeholders::bytes_transferred));
                     }
                 } else {
                     std::cout << "package not contain key command" << std::endl;
@@ -335,7 +347,7 @@ public:
             }
         }
         socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                      boost::bind(&StunServer::handle_send, this, message,
+                  boost::bind(&StunServer::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
     }
@@ -359,10 +371,11 @@ public:
                 std::cout << "OK." << std::endl;
 
                 if(jobj.contains("list")) {
-                    boost::json::object jmsg = jobj.at("list").as_object();
+                    boost::json::object jlist = jobj.at("list").as_object();
+                    save_json(jlist);
                     int counter = 0;
                     std::cout << "List machines: " << std::endl;
-                    for(auto &item: jmsg) {
+                    for(auto &item: jlist) {
                         if(item.key() == my_ip)
                             continue;
                         std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
@@ -387,31 +400,50 @@ public:
 
     virtual void send_msg() override {
         std::vector<std::string> args;
-        boost::shared_ptr<std::string> msg(new std::string);
-        std::getline(std::cin, *msg);
-        std::istringstream is(*msg);
+        std::string msg;
+        std::string cmd;
+        std::getline(std::cin, msg);
+        std::istringstream is(msg);
         int argc = 0;
         while (is) {
             std::string word;
             is >> word;
             if(argc != 0 && !word.empty())
                 args.push_back(word);
+            if(argc == 0)
+                cmd = word;
             argc++;
         }
         boost::json::array jdata;
         for(size_t i = 0; i < args.size(); i++)
             jdata.emplace_back(args[i]);
-        send_request(*msg, jdata);
+        send_request(cmd, jdata);
     }
 
-    void send_request(std::string &cmd, boost::json::array &jdata) {
+    void send_request(std::string &cmd, boost::json::array &jdata_array) {
         boost::json::object jrequest;
+        boost::json::object jdata;
         switch (state_connect) {
         case STATE_CONNECT_STUN:
             if(cmd == "list")
                 jrequest["command"] = cmd;
             else if(cmd == "connect") {
-
+                if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
+                    jrequest["command"] = "relay";
+                    std::string ss = boost::json::value_to<std::string>(jdata_array.at(0));
+                    int numberPC = std::stoi(ss);
+                    boost::json::object jlistPC = load_json().as_object();
+                    int i = 0;
+                    for(auto &item: jlistPC) {
+                        if(i == numberPC) {
+                            jdata.emplace("IP", item.key());
+                            jdata.emplace("PORT", item.value());
+                        }
+                        i++;
+                    }
+                } else {
+                    std::cout << "PC number is required from list of connections" << std::endl;
+                }
             }
             break;
         case STATE_CONNECT_CLIENT:
@@ -423,7 +455,7 @@ public:
         send_pack(jrequest, jdata);
     }
 
-    void send_pack(boost::json::object &jrequest, boost::json::array &jdata) {
+    void send_pack(boost::json::object &jrequest, boost::json::object &jdata) {
         boost::json::object jobj;
         jobj["request"] = jrequest;
         if(!jdata.empty())
@@ -458,6 +490,13 @@ public:
 
         t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
         t.async_wait(boost::bind(&Client::proc_init_p2p, this));
+    }
+
+    bool is_number(const std::string& s)
+    {
+        std::string::const_iterator it = s.begin();
+        while (it != s.end() && std::isdigit(*it)) ++it;
+        return !s.empty() && it == s.end();
     }
 
     enum STATE_CONNECT {
