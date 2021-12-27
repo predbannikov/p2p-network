@@ -276,7 +276,7 @@ public:
         auto const valid = validate(*msg);
         boost::json::object jaction;
         boost::json::object jdata;
-        std::cout << "************ " << *msg << std::endl;
+        std::cout << "INCOMING DATA" << *msg << std::endl;
         if(valid) {
             boost::json::object jmsg = boost::json::parse(*msg).as_object();
             if(!jmsg.contains("action")) {
@@ -285,21 +285,22 @@ public:
                 jaction = jresponse;
             } else {
                 if(jmsg.at("action").as_string() == "request") {
-                    boost::json::object jresponse;
-                    boost::json::object jrequest = jmsg.at("data").as_object();
-                    if(jrequest.contains("command")) {
-                        jresponse.emplace("status", "ok");
-                        boost::json::string str_req = jrequest.at("command").as_string();
+                    boost::json::object jresponse_msg;
+                    jresponse_msg.emplace("action", "response");
+                    boost::json::object jrequest_parse = jmsg.at("data").as_object();
+                    if(jrequest_parse.contains("command")) {
+                        jresponse_msg.emplace("status", "ok");
+                        boost::json::string str_req = jrequest_parse.at("command").as_string();
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
-                            jresponse.emplace("list", jvalue.as_object());
-                            jaction = jresponse;
+                            jresponse_msg.emplace("list", jvalue.as_object());
+                            jaction = jresponse_msg;
                         } else if (str_req == "hole punching") {
                             std::cout << "hole punching cmd" << std::endl;
                         } else if (str_req == "myip") {
-                            jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                            jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "relay") {
-                            boost::json::object jdata = jrequest.at("data").as_object();
+                            boost::json::object jdata = jrequest_parse.at("data").as_object();
                             boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
                                               std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
                             boost::json::object jrelay;
@@ -313,10 +314,10 @@ public:
                         }
                     } else {
                         std::cout << "package not contain key command" << std::endl;
-                        jresponse.emplace("status", "error");
+                        jresponse_msg.emplace("status", "error");
                     }
-                    jaction = jresponse;
-                    send_pack(jaction, jdata);
+                    jaction = jresponse_msg;
+                    send_pack(jaction);
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
                     if(jresponse.contains("status")) {
@@ -349,7 +350,7 @@ public:
 
         } else {
             std::cout << "RAW response: " << *msg << "\nok. punching stop \n" << std::endl;
-            send_pack(jaction, jdata);
+            send_pack(jaction );
         }
         std::cout << std::endl << socket_.local_endpoint() << "\n>" << std::flush;
 
@@ -359,11 +360,7 @@ public:
         //                          boost::asio::placeholders::bytes_transferred));
     }
 
-    void send_pack(boost::json::object &jaction, boost::json::object &jdata) {
-        boost::json::object jobj;
-        jobj.emplace("action", jaction);
-        if(!jdata.empty())
-            jobj["data"] = jdata;
+    void send_pack(boost::json::object &jobj) {
         boost::shared_ptr<std::string> serialise_data(new std::string);
         serialise_data->append(boost::json::serialize(jobj));
         sock_send(serialise_data);
@@ -484,7 +481,7 @@ public:
         default:
             std::cout << "STATE_CONNECT default case" << std::endl;
         }
-        send_pack(jrequest, jdata);
+        send_pack(jrequest);
     }
 
 
