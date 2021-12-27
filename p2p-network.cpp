@@ -275,7 +275,7 @@ public:
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
         boost::json::object jaction;
-        boost::json::object jdata;
+        //boost::json::object jdata;
         std::cout << "INCOMING DATA" << *msg << std::endl;
         if(valid) {
             boost::json::object jmsg = boost::json::parse(*msg).as_object();
@@ -294,15 +294,14 @@ public:
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
                             jresponse_msg.emplace("list", jvalue.as_object());
-                            jaction.emplace("data", jresponse_msg);
                         } else if (str_req == "hole punching") {
                             std::cout << "hole punching cmd" << std::endl;
                         } else if (str_req == "myip") {
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "relay") {
-                            boost::json::object jdata = jrequest_parse.at("data").as_object();
-                            boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
-                                              std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
+                            boost::json::object jparameters = jrequest_parse.at("paramaters").as_object();
+                            boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))),
+                                              std::stoi(boost::json::value_to<std::string>(jparameters.at("PORT"))));
                             boost::json::object jrelay;
                             jrelay.emplace("connect", remote_endpoint_.address().to_string());
                             boost::shared_ptr<std::string> relay_ptr(new std::string);
@@ -339,7 +338,7 @@ public:
                         }
                     }
                     if(jresponse.contains("myip")) {
-                            std::cout << "ext ip: " << jresponse.at("myip").as_string() << std::endl;
+                            std::cout << "Ext ip: " << jresponse.at("myip").as_string() << std::endl;
                     }
                     if(jresponse.contains("connect")) {
                         std::cout << "connection request with " << jresponse.at("connect").as_string() << std::endl;
@@ -451,25 +450,29 @@ public:
         boost::json::object jaction;
         jaction.emplace("action", "request");
         boost::json::object jrequest_msg;
-        boost::json::object jdata;
+        boost::json::object jparameters;
         switch (state_connect) {
         case STATE_CONNECT_STUN:
             if(cmd == "list")
                 jrequest_msg["command"] = cmd;
+            else if(cmd == "myip")
+                jrequest_msg["command"] = cmd;
             else if(cmd == "connect") {
                 if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
                     jrequest_msg["command"] = "relay";
+
                     std::string ss = boost::json::value_to<std::string>(jdata_array.at(0));
                     int numberPC = std::stoi(ss);
                     boost::json::object jlistPC = load_json().as_object();
                     int i = 0;
                     for(auto &item: jlistPC) {
                         if(i == numberPC) {
-                            jdata.emplace("IP", item.key());
-                            jdata.emplace("PORT", item.value());
+                            jparameters.emplace("IP", item.key());
+                            jparameters.emplace("PORT", item.value());
                         }
                         i++;
                     }
+                    jrequest_msg.emplace("parameters", jparameters);
                 } else {
                     std::cout << "PC number is required from list of connections" << std::endl;
                 }
