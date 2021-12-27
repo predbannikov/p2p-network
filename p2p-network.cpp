@@ -286,7 +286,7 @@ public:
             } else {
                 if(jmsg.at("action").as_string() == "request") {
                     boost::json::object jresponse_msg;
-                    jresponse_msg.emplace("action", "response");
+                    jaction.emplace("action", "response");
                     boost::json::object jrequest_parse = jmsg.at("data").as_object();
                     if(jrequest_parse.contains("command")) {
                         jresponse_msg.emplace("status", "ok");
@@ -316,7 +316,7 @@ public:
                         std::cout << "package not contain key command" << std::endl;
                         jresponse_msg.emplace("status", "error");
                     }
-                    jaction = jresponse_msg;
+                    jaction.emplace("data",jresponse_msg);
                     send_pack(jaction);
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
