@@ -284,7 +284,7 @@ public:
                 jresponse.emplace("status", "this pack not contains key action");
                 jaction = jresponse;
             } else {
-                if(jmsg.at("action").as_object().contains("request")) {
+                if(jmsg.at("action").as_string() == "request") {
                     boost::json::object jresponse;
                     boost::json::object jrequest = jmsg.at("data").as_object();
                     if(jrequest.contains("command")) {
