@@ -323,19 +323,28 @@ public:
                     jaction.emplace("data",jresponse_msg);
                     send_pack(jaction);
                 } else if(jmsg.at("action").as_string() == "connect") {
-                    boost::json::object jpayload;
-                    jpayload.emplace("status", "ok");
+                    //jpayload.emplace("status", "ok");
                     jaction.emplace("action", "request");
                     boost::json::object jdata = jmsg.at("data").as_object();
-                    boost::json::object jrequest;
-                    jrequest.emplace("command", "relay");
-                    boost::json::object jparameters;
-                    jparameters.emplace("IP", jdata.at("IP"));
-                    jparameters.emplace("PORT", jdata.at("PORT"));
-                    jparameters.emplace("payload", jpayload);
-                    jrequest.emplace("parameters", jparameters);
-                    jaction.emplace("data", jrequest);
-                    send_pack(jaction);
+                    boost::json::object jpayload = jdata.at("payload").as_object();
+                    boost::json::object jpayload_msg;
+                    if(jpayload.at("STATE").as_string() == "SYN") {
+                        jpayload_msg.emplace("STATE", "ACK");
+                        boost::json::object jrequest;
+                        jrequest.emplace("command", "relay");
+                        boost::json::object jparameters;
+                        jparameters.emplace("IP", jdata.at("IP"));
+                        jparameters.emplace("PORT", jdata.at("PORT"));
+                        jparameters.emplace("payload", jpayload_msg);
+                        jrequest.emplace("parameters", jparameters);
+                        jaction.emplace("data", jrequest);
+                        send_pack(jaction);
+                    } else if(jdata.at("payload").as_string() == "ACK") {
+                        jpayload_msg.emplace("OPENING_PORT", 50005);
+                        boost::asio::io_service srvc;
+                        std::cout << "connet success" << std::endl;
+                    }
+
 
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
@@ -405,6 +414,12 @@ public:
     char buff[1024];
     boost::asio::deadline_timer t;
     bool state_connection = false;
+
+
+    enum STATE_CONN_P2P {
+        STATE_SYN, STATE_ACK
+    } state_conn_p2p;
+
 };
 
 class StunServer : public udp_server {
@@ -489,7 +504,9 @@ public:
                         if(i == numberPC) {
                             jparameters.emplace("IP", item.key());
                             jparameters.emplace("PORT", item.value());
-                            jparameters.emplace("payload", "???");
+                            boost::json::object payload;
+                            payload.emplace("STATE", "SYN");
+                            jparameters.emplace("payload", payload);
                         }
                         i++;
                     }
@@ -547,10 +564,6 @@ public:
     enum STATE_CONNECT {
         STATE_CONNECT_STUN, STATE_CONNECT_CLIENT
     } state_connect = STATE_CONNECT_STUN;
-
-    enum STATE_CONN_P2P {
-        STATE_SYN, STATE_ACK
-    } state_conn_p2p;
 
 };
 
