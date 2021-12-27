@@ -333,8 +333,8 @@ public:
                     jparameters.emplace("IP", jdata.at("IP"));
                     jparameters.emplace("PORT", jdata.at("PORT"));
                     jparameters.emplace("payload", jpayload);
-                    jaction.emplace("data", jparameters);
-
+                    jrequest.emplace("parameters", jparameters);
+                    jaction.emplace("data", jrequest);
 
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
