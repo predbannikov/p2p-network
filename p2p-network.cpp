@@ -303,7 +303,11 @@ public:
                             boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))),
                                               std::stoi(boost::json::value_to<std::string>(jparameters.at("PORT"))));
                             boost::json::object jrelay;
-                            jrelay.emplace("connect", remote_endpoint_.address().to_string());
+                            jrelay.emplace("action", "connect");
+                            boost::json::object jconnect;
+                            jconnect.emplace("IP", remote_endpoint_.address().to_string());
+                            jconnect.emplace("PORT", std::to_string(remote_endpoint_.port()));
+                            jrelay.emplace("data", jconnect);
                             boost::shared_ptr<std::string> relay_ptr(new std::string);
                             *relay_ptr = boost::json::serialize(jrelay);
                             socket_.async_send_to(boost::asio::buffer(*relay_ptr), ep,
