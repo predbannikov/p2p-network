@@ -276,71 +276,82 @@ public:
         auto const valid = validate(*msg);
         boost::json::object jaction;
         boost::json::object jdata;
+        std::cout << "************ " << *msg << std::endl;
         if(valid) {
-            boost::json::object jobj = boost::json::parse(*msg).as_object();
-            if(jobj.contains("request")) {
-                if(jobj.at("request").as_object().contains("command")) {
+            boost::json::object jmsg = boost::json::parse(*msg).as_object();
+            if(!jmsg.contains("action")) {
+                boost::json::object jresponse;
+                jresponse.emplace("status", "this pack not contains key action");
+                jaction = jresponse;
+            } else {
+                if(jmsg.at("action").as_object().contains("request")) {
                     boost::json::object jresponse;
-                    jresponse.emplace("status", "OK");
-                    boost::json::object jrequest = jobj.at("request").as_object();
-                    boost::json::string str_req = jrequest.at("command").as_string();
-                    if(str_req == "list") {
-                        boost::json::value jvalue = boost::json::parse(load_data());
-                        jresponse.emplace("list", jvalue.as_object());
-                        jaction = jresponse;
-                    } else if (str_req == "myip") {
-                        jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
-                    } else if (str_req == "relay") {
-                        boost::json::object jdata = jobj.at("data").as_object();
-                        boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
-                                          std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
-                        boost::json::object jrelay;
-                        jrelay.emplace("connect", remote_endpoint_.address().to_string());
-                        boost::shared_ptr<std::string> relay_ptr(new std::string);
-                        *relay_ptr = boost::json::serialize(jrelay);
-                        socket_.async_send_to(boost::asio::buffer(*relay_ptr), ep,
-                                  boost::bind(&udp_server::handle_send, this, relay_ptr,
-                                          boost::asio::placeholders::error,
-                                          boost::asio::placeholders::bytes_transferred));
+                    boost::json::object jrequest = jmsg.at("data").as_object();
+                    if(jrequest.contains("command")) {
+                        jresponse.emplace("status", "OK");
+                        boost::json::object jrequest = jmsg.at("request").as_object();
+                        boost::json::string str_req = jrequest.at("command").as_string();
+                        if(str_req == "list") {
+                            boost::json::value jvalue = boost::json::parse(load_data());
+                            jresponse.emplace("list", jvalue.as_object());
+                            jaction = jresponse;
+                        } else if (str_req == "hole punching") {
+                            std::cout << "hole punching cmd" << std::endl;
+                        } else if (str_req == "myip") {
+                            jresponse["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                        } else if (str_req == "relay") {
+                            boost::json::object jdata = jrequest.at("data").as_object();
+                            boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
+                                              std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
+                            boost::json::object jrelay;
+                            jrelay.emplace("connect", remote_endpoint_.address().to_string());
+                            boost::shared_ptr<std::string> relay_ptr(new std::string);
+                            *relay_ptr = boost::json::serialize(jrelay);
+                            socket_.async_send_to(boost::asio::buffer(*relay_ptr), ep,
+                                      boost::bind(&udp_server::handle_send, this, relay_ptr,
+                                              boost::asio::placeholders::error,
+                                              boost::asio::placeholders::bytes_transferred));
+                        }
+                    } else {
+                        std::cout << "package not contain key command" << std::endl;
                     }
                     jaction = jresponse;
-                } else {
-                    std::cout << "package not contain key command" << std::endl;
+                    send_pack(jaction, jdata);
                 }
-            }
-            if(jobj.contains("response")) {
-                if(jobj.at("response").as_object().contains("status")) {
-                    boost::json::object jresponse = jobj.at("response").as_object();
-                    if(jresponse.at("status").as_string() == "ok") {
-                        std::cout << "ok." << std::endl;
+                if(jmsg.at("action").as_object().contains("response")) {
+                    boost::json::object jresponse = jmsg.at("data").as_object();
+                    if(jresponse.contains("status")) {
+                        if(jresponse.at("status").as_string() == "ok") {
+                            std::cout << "ok." << std::endl;
+                        }
                     }
-                    if(jobj.contains("list")) {
-                        boost::json::object jlist = jobj.at("list").as_object();
+                    if(jresponse.contains("list")) {
+                        boost::json::object jlist = jresponse.at("list").as_object();
                         save_json(jlist);
                         int counter = 0;
                         std::cout << "list machines: " << std::endl;
                         for(auto &item: jlist) {
                             if(item.key() == my_ip)
-                                continue;
+                            continue;
                             std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
                             counter++;
                         }
-                    } else if(jobj.contains("myip")) {
-                        std::cout << "ext ip: " << jobj.at("myip").as_string() << std::endl;
-                    } else if(jobj.contains("connect")) {
-                        std::cout << "connection request with " << jobj.at("connect").as_string() << std::endl;
+                    }
+                    if(jresponse.contains("myip")) {
+                            std::cout << "ext ip: " << jresponse.at("myip").as_string() << std::endl;
+                    }
+                    if(jresponse.contains("connect")) {
+                        std::cout << "connection request with " << jresponse.at("connect").as_string() << std::endl;
                     }
                 }
             }
+
         } else {
-            if(*msg == "Hole punched?") {
-                state_connection = true;
-                std::cout << "response: " << *msg << "\nok. punching stop \n" << std::endl;
-            }
+            std::cout << "RAW response: " << *msg << "\nok. punching stop \n" << std::endl;
+            send_pack(jaction, jdata);
         }
         std::cout << std::endl << socket_.local_endpoint() << "\n>" << std::flush;
 
-        send_pack(jaction, jdata);
         //        socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
         //                  boost::bind(&udp_server::handle_send, this, message,
         //                          boost::asio::placeholders::error,
@@ -362,7 +373,7 @@ public:
 
     void send_ping(std::string str_ip, std::string str_port)
     {
-        boost::shared_ptr<std::string> msg(new std::string("hole punching"));
+        boost::shared_ptr<std::string> msg(new std::string("{\"action\":\"request\",\"data\":{\"command\":\"hole punching\"}}"));
 //        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
         socket_.async_send_to(boost::asio::buffer(*msg), remote_endpoint_,
                       boost::bind(&udp_server::handle_send, this, msg,
