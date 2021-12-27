@@ -289,7 +289,6 @@ public:
                     boost::json::object jrequest = jmsg.at("data").as_object();
                     if(jrequest.contains("command")) {
                         jresponse.emplace("status", "OK");
-                        boost::json::object jrequest = jmsg.at("request").as_object();
                         boost::json::string str_req = jrequest.at("command").as_string();
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
