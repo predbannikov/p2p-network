@@ -335,6 +335,7 @@ public:
                     jparameters.emplace("payload", jpayload);
                     jrequest.emplace("parameters", jparameters);
                     jaction.emplace("data", jrequest);
+                    send_pack(jaction);
 
                 } else if(jmsg.at("action").as_string() == "response") {
                     boost::json::object jresponse = jmsg.at("data").as_object();
