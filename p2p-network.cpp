@@ -383,6 +383,9 @@ public:
                     }
                 } else if(jobj.contains("myip")) {
                     std::cout << "Ext IP: " << jobj.at("myip").as_string() << std::endl;
+                } else if(jobj.contains("connect")) {
+                    std::cout << "Connection request with " << jobj.at("connect").as_string() << std::endl;
+
                 }
             } else  {
                 std::cout << "not correct request" << std::endl;
@@ -444,6 +447,9 @@ public:
                 } else {
                     std::cout << "PC number is required from list of connections" << std::endl;
                 }
+            } else if(cmd == "exit") {
+                socket_.close();
+                exit(0);
             }
             break;
         case STATE_CONNECT_CLIENT:
@@ -515,17 +521,22 @@ int main(int argc, char *argv[]) {
     std::cout << "\n*** start programm ***" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
-    if(my_ip == SIGNAL_SERVER) {
+    try {
+        if(my_ip == SIGNAL_SERVER) {
             boost::asio::io_service io_service;
             StunServer userv(io_service, 50003);
             io_service.run();
-    } else {
-        std::cout << "CLIENT MACHINE" << std::endl;
-        char buff[1024];
-        boost::asio::io_service service;
-        Client userv(service, 50001);
-        boost::thread(boost::bind(&boost::asio::io_service::run, &service));
-        client_session(&userv);
+        } else {
+            std::cout << "CLIENT MACHINE" << std::endl;
+            char buff[1024];
+            boost::asio::io_service service;
+            Client userv(service, 50001);
+            boost::thread(boost::bind(&boost::asio::io_service::run, &service));
+            client_session(&userv);
+
+        }
+    }  catch (boost::system::error_code ec) {
+        std::cout << ec.message() << std::endl << ec.what() << std::endl;
     }
     return 0;
 }
