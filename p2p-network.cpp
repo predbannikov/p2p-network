@@ -294,7 +294,7 @@ public:
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
                             jresponse_msg.emplace("list", jvalue.as_object());
-                            jaction = jresponse_msg;
+                            jaction.emplace("data", jresponse_msg);
                         } else if (str_req == "hole punching") {
                             std::cout << "hole punching cmd" << std::endl;
                         } else if (str_req == "myip") {
@@ -323,6 +323,7 @@ public:
                     if(jresponse.contains("status")) {
                         if(jresponse.at("status").as_string() == "ok") {
                             std::cout << "ok." << std::endl;
+                            state_connection = true;
                         }
                     }
                     if(jresponse.contains("list")) {
@@ -447,15 +448,17 @@ public:
     }
 
     void send_request(std::string &cmd, boost::json::array &jdata_array) {
-        boost::json::object jrequest;
+        boost::json::object jaction;
+        jaction.emplace("action", "request");
+        boost::json::object jrequest_msg;
         boost::json::object jdata;
         switch (state_connect) {
         case STATE_CONNECT_STUN:
             if(cmd == "list")
-                jrequest["command"] = cmd;
+                jrequest_msg["command"] = cmd;
             else if(cmd == "connect") {
                 if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
-                    jrequest["command"] = "relay";
+                    jrequest_msg["command"] = "relay";
                     std::string ss = boost::json::value_to<std::string>(jdata_array.at(0));
                     int numberPC = std::stoi(ss);
                     boost::json::object jlistPC = load_json().as_object();
@@ -481,7 +484,8 @@ public:
         default:
             std::cout << "STATE_CONNECT default case" << std::endl;
         }
-        send_pack(jrequest);
+        jaction.emplace("data", jrequest_msg);
+        send_pack(jaction);
     }
 
 
