@@ -35,7 +35,7 @@ class Client;
 std::mutex 	mtx_rwfile;
 std::string my_ip;
 
-boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
+//boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 
 void client_session(Client*);
@@ -269,7 +269,7 @@ public:
              const boost::system::error_code& /*error*/,
              std::size_t /*bytes_transferred*/)
     {
-        std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << " from -> " << socket_.local_endpoint() << std::endl;
+        std::cout << "data sended: " << *message << " to -> " << addr_srv << " from -> " << socket_.local_endpoint() << std::endl;
     }
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
@@ -520,7 +520,7 @@ public:
     }
 
     virtual void  sock_send(boost::shared_ptr<std::string> message) override {
-        socket_.async_send_to(boost::asio::buffer(*message), server_uep,
+        socket_.async_send_to(boost::asio::buffer(*message), addr_srv,
                   boost::bind(&udp_server::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
@@ -674,6 +674,7 @@ void client_session(Client *client)
     }
 }
 
+/*
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
 {
     while(true) {
@@ -706,4 +707,4 @@ void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
        
     }
 }
-
+*/
