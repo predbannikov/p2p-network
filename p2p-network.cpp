@@ -349,8 +349,6 @@ public:
                         int counter = 0;
                         std::cout << "list machines: " << std::endl;
                         for(auto &item: jlist) {
-                            if(item.key() == my_ip)
-                            continue;
                             std::cout << counter << ". " << item.key() << ":" << std::atoi(item.value().as_string().c_str()) << std::endl;
                             counter++;
                         }
@@ -473,10 +471,10 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service *iosrv = new boost::asio::io_service();
-        Node *cln2 = new Node(*iosrv, rem_ep, 50055, false);
+        Node *new_node = new Node(*iosrv, rem_ep, 50055, false);
         boost::thread(boost::bind(&boost::asio::io_service::run, iosrv));
-        boost::thread(boost::bind(&Node::start_receive, cln2));
-
+        boost::thread(boost::bind(&Node::start_receive, new_node));
+        nodes.push_back(new_node);
     }
 
     virtual void  sock_send(boost::shared_ptr<std::string> message) override {
@@ -549,7 +547,6 @@ public:
                 } else {
                     std::cout << "second parameter not recognized" << std::endl;
                 }
-
             } else if(cmd == "exit") {
                 state_connect = STATE_CONNECT_STUN;
             }
@@ -558,6 +555,17 @@ public:
         default:
             std::cout << "STATE_CONNECT default case" << std::endl;
         }
+        if(cmd == "node") {
+            if(!jdata_array.empty()) {
+
+                std::string cmd_node = boost::json::value_to<std::string>(jdata_array.at(0));
+                jdata_array.erase(jdata_array.begin());
+                std::cout << "CMD: " << cmd_node << " ARGS: " << jdata_array << std::endl;
+                nodes.front()->send_request(cmd_node, jdata_array);
+                return;
+            }
+        }
+
         jaction.emplace("data", jrequest_msg);
         send_pack(jaction);
     }
@@ -594,7 +602,7 @@ public:
         return !s.empty() && it == s.end();
     }
     boost::json::object jsave_request;
-
+    std::vector<Node *> nodes;
 };
 
 int main(int argc, char *argv[]) {
