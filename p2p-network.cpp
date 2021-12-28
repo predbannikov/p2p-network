@@ -478,7 +478,7 @@ public:
 
 class Client : public udp_server {
 public:
-    Client(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port) : udp_server(io_service, srv_ep, port) {
+    Client(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port, bool listen = true) : udp_server(io_service, srv_ep, port) {
         std::cout << "start client for connection to -" << srv_ep << std::endl;
         //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
         //boost::system::error_code ec;
@@ -486,7 +486,10 @@ public:
         remote_endpoint_ = srv_ep;
         //remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(str_remove_address), 50003);
         //start_receive();
-        connect(srv_ep.address().to_string(), std::to_string(srv_ep.port()));
+        if(listen)
+            start_receive();
+        else
+            connect(srv_ep.address().to_string(), std::to_string(srv_ep.port()));
     }
 
     void send_msg() {
@@ -647,7 +650,7 @@ int main(int argc, char *argv[]) {
             std::cout << "CLIENT MACHINE" << std::endl;
             char buff[1024];
             boost::asio::io_service service;
-            Client userv(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001);
+            Client userv(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001, false);
             boost::thread(boost::bind(&boost::asio::io_service::run, &service));
             client_session(&userv);
 
