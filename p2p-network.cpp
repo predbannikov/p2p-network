@@ -436,7 +436,7 @@ public:
     {
         boost::shared_ptr<std::string> msg(new std::string("{\"action\":\"request\",\"data\":{\"command\":\"hole punching\"}}"));
 //        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
-        socket_.async_send_to(boost::asio::buffer(*msg), remote_endpoint_,
+        socket_.async_send_to(boost::asio::buffer(*msg), addr_srv,
                       boost::bind(&udp_server::handle_send, this, msg,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
