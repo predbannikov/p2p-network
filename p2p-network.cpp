@@ -274,12 +274,12 @@ public:
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
 
     void parser(std::string *msg) {
+        std::cout << "INCOMING DATA: " << *msg << " | from: " << remote_endpoint_<< std::endl;
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
         boost::json::object jaction;
         //boost::json::object jdata;
-        std::cout << "INCOMING DATA" << *msg << std::endl;
         if(valid) {
             boost::json::object jmsg = boost::json::parse(*msg).as_object();
             if(!jmsg.contains("action")) {
@@ -358,6 +358,7 @@ public:
                                 boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
                                                                       std::stoi(boost::json::value_to<std::string>(jpayload.at("PORT"))));
                                 create_node(rem_ep);
+                                state_connect = STATE_CONNECT_STUN;
                             }
 
                             jparameters.emplace("payload", jpayload_msg);
@@ -566,7 +567,6 @@ public:
             }
             break;
         case STATE_CONNECT_CLIENT:
-            std::cout << "jsave_parameter: " << jsave_request << std::endl;
             if(cmd == "PORT") {
                 if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
                     jrequest_msg = jsave_request;
@@ -576,6 +576,7 @@ public:
                     jparameters.erase("payload");
                     jpayload.emplace("PORT", "50055");
                     boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))), 50055);
+                    //boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
                     create_node(rem_ep);
                     jparameters.emplace("payload", jpayload);
                     jrequest_msg.emplace("parameters", jparameters);
