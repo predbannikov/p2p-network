@@ -30,7 +30,7 @@
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
 
-class Client;
+class Node;
 
 std::mutex 	mtx_rwfile;
 std::string my_ip;
@@ -38,7 +38,7 @@ std::string my_ip;
 //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
 
-void client_session(Client*);
+void client_session(Node*);
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
 void remove_machine(std::string ip_str);
 
@@ -458,6 +458,7 @@ public:
         STATE_CONNECT_STUN, STATE_CONNECT_CLIENT, STATE_CONNECT_CLIENT_STUN_MIDDLE
     } state_connect = STATE_CONNECT_STUN;
 
+    bool listener;
 };
 
 class StunServer : public udp_server {
@@ -476,9 +477,9 @@ public:
     }
 };
 
-class Client : public udp_server {
+class Node : public udp_server {
 public:
-    Client(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port, bool listen = true) : udp_server(io_service, srv_ep, port) {
+    Node(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port, bool listen = true) : udp_server(io_service, srv_ep, port) {
         std::cout << "start client for connection to -" << srv_ep << std::endl;
         //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
         //boost::system::error_code ec;
@@ -486,7 +487,8 @@ public:
         remote_endpoint_ = srv_ep;
         //remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(str_remove_address), 50003);
         //start_receive();
-        if(listen)
+        listener = listen;
+        if(listener)
             start_receive();
         else
             connect(srv_ep.address().to_string(), std::to_string(srv_ep.port()));
@@ -516,17 +518,24 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service *iosrv = new boost::asio::io_service();
-        Client *cln2 = new Client(*iosrv, rem_ep, 50055);
+        Node *cln2 = new Node(*iosrv, rem_ep, 50055);
         boost::thread(boost::bind(&boost::asio::io_service::run, iosrv));
-        boost::thread(boost::bind(&Client::start_receive, cln2));
+        boost::thread(boost::bind(&Node::start_receive, cln2));
 
     }
 
     virtual void  sock_send(boost::shared_ptr<std::string> message) override {
-        socket_.async_send_to(boost::asio::buffer(*message), addr_srv,
+        if(!listener)
+            socket_.async_send_to(boost::asio::buffer(*message), addr_srv,
                   boost::bind(&udp_server::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
+        else
+            socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                  boost::bind(&udp_server::handle_send, this, message,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+
 
 
     }
@@ -623,7 +632,7 @@ public:
         }
 
         t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
-        t.async_wait(boost::bind(&Client::proc_init_p2p, this));
+        t.async_wait(boost::bind(&Node::proc_init_p2p, this));
     }
 
     bool is_number(const std::string& s)
@@ -644,15 +653,16 @@ int main(int argc, char *argv[]) {
     try {
         if(my_ip == SIGNAL_SERVER) {
             boost::asio::io_service io_service;
-            StunServer userv(io_service, 50003);
+            //StunServer userv(io_service, 50003);
+            Node node(io_service, boost::asio::ip::udp::endpoint(), 50003, true);
             io_service.run();
         } else {
             std::cout << "CLIENT MACHINE" << std::endl;
             char buff[1024];
             boost::asio::io_service service;
-            Client userv(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001, false);
+            Node node(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001, false);
             boost::thread(boost::bind(&boost::asio::io_service::run, &service));
-            client_session(&userv);
+            client_session(&node);
 
         }
     }  catch (boost::system::error_code ec) {
@@ -661,7 +671,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void client_session(Client *client)
+void client_session(Node *client)
 {
     try {
         client->start_receive();
@@ -676,38 +686,3 @@ void client_session(Client *client)
         std::cout << "unknown error" << std::endl;
     }
 }
-
-/*
-void client_session_ping(socket_ptr sock, unsigned short port, int timewait)
-{
-    while(true) {
-        std::cout << "################# Ping sending ############### " << std::endl;
-        boost::asio::ip::tcp::endpoint ep = sock->remote_endpoint();
-        boost::asio::ip::udp::endpoint client_ep(boost::asio::ip::udp::v4(), port);
-        std::cout << "ep=" << ep << std::endl;
-        std::cout << "server_uep=" << server_uep << std::endl;
-        std::cout << "client_ep=" << client_ep << std::endl;
-        boost::asio::io_service io_service;
-        boost::system::error_code ec;
-        if (my_ip == SIGNAL_SERVER) {
-            boost::asio::ip::udp::socket usock(io_service, server_uep);
-            std::cout << "send_to " << usock.local_endpoint() << " " << client_ep << std::endl;
-            std::string strsend = " #server: "; 
-            usock.send_to(boost::asio::buffer(strsend.c_str(),strsend.length()), client_ep);
-            
-        } else {
-            try {
-                boost::asio::ip::udp::socket usock(io_service, client_ep);
-                std::cout << "send_to " << usock.local_endpoint() << std::endl;
-                std::string strsend = " #client: ";
-                usock.send_to(boost::asio::buffer(strsend.c_str(),strsend.length()), server_uep);
-            } 
-            catch (boost::system::system_error e) {
-                std::cerr << std::endl << "ERROR: " << e.what() << " " << e.what() << std::endl;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(timewait));
-       
-    }
-}
-*/
