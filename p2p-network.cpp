@@ -261,7 +261,7 @@ public:
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "send") {
                             boost::json::object jparameters = jrequest_parse.at("parameters").as_object();
-                            std::cout << jparameters.at("message").as_string();
+                            std::cout << jparameters.at("message").as_string() << std::endl;
                         } else if (str_req == "relay") {
                             boost::json::object jparameters = jrequest_parse.at("parameters").as_object();
                             boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))),
@@ -509,6 +509,7 @@ public:
                 jrequest_msg["command"] = cmd;
             else if(cmd == "send") {
                 jrequest_msg["command"] = cmd;
+                std::cout << "jdata_array " << jdata_array << std::endl;
                 std::string message;
                 for(auto &item: jdata_array) {
                     message.append(boost::json::value_to<std::string>(item));
@@ -572,11 +573,14 @@ public:
         }
         if(cmd == "node") {
             if(!jdata_array.empty()) {
-
+                std::cout << "RAW jdata_array: " << jdata_array << std::endl;
                 std::string cmd_node = boost::json::value_to<std::string>(jdata_array.at(0));
-                jdata_array.erase(jdata_array.begin());
-                std::cout << "CMD: " << cmd_node << " ARGS: " << jdata_array << std::endl;
-                nodes.front()->send_request(cmd_node, jdata_array);
+                boost::json::array jdata_array_new;
+                for(int i = 1; i < jdata_array.size(); i++)
+                    jdata_array_new.emplace_back(jdata_array.at(i));
+
+                std::cout << "CMD: " << cmd_node << " ARGS: " << jdata_array_new << std::endl;
+                nodes.front()->send_request(cmd_node, jdata_array_new);
                 return;
             }
         }
