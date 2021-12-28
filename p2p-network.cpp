@@ -329,20 +329,42 @@ public:
                     boost::json::object jpayload = jdata.at("payload").as_object();
                     boost::json::object jpayload_msg;
                     if(jpayload.at("STATE").as_string() == "SYN") {
-                        jpayload_msg.emplace("STATE", "ACK");
                         boost::json::object jrequest;
-                        jrequest.emplace("command", "relay");
                         boost::json::object jparameters;
-                        jparameters.emplace("IP", jdata.at("IP"));
-                        jparameters.emplace("PORT", jdata.at("PORT"));
-                        jparameters.emplace("payload", jpayload_msg);
-                        jrequest.emplace("parameters", jparameters);
-                        jaction.emplace("data", jrequest);
+                        switch (state_connect) {
+                        case STATE_CONNECT_STUN:
+                            jpayload_msg.emplace("STATE", "ACK");
+                            jrequest.emplace("command", "relay");
+                            jparameters.emplace("IP", jdata.at("IP"));
+                            jparameters.emplace("PORT", jdata.at("PORT"));
+                            jparameters.emplace("payload", jpayload_msg);
+                            jrequest.emplace("parameters", jparameters);
+                            jaction.emplace("data", jrequest);
+                            state_connect = STATE_CONNECT_CLIENT_STUN_MIDDLE;
+                            break;
+                        case STATE_CONNECT_CLIENT_STUN_MIDDLE:
+                            jpayload_msg.emplace("STATE", "ACK");
+                            jrequest.emplace("command", "relay");
+                            jparameters.emplace("IP", jdata.at("IP"));
+                            jparameters.emplace("PORT", jdata.at("PORT"));
+
+                            std::cout << "OTHER CLIENT OPENING PORT: " << jpayload.at("PORT").as_string() << std::endl;
+
+                            jparameters.emplace("payload", jpayload_msg);
+                            jrequest.emplace("parameters", jparameters);
+                            jaction.emplace("data", jrequest);
+                            state_connect = STATE_CONNECT_CLIENT_STUN_MIDDLE;
+
+                            break;
+                        default:
+                            std::cout << "default STATE_CONNECTION" << std::endl;
+                        }
                         send_pack(jaction);
-                    } else if(jdata.at("payload").as_string() == "ACK") {
+                    } else if(jpayload.at("STATE").as_string() == "ACK") {
                         jpayload_msg.emplace("OPENING_PORT", 50005);
                         boost::asio::io_service srvc;
-                        std::cout << "connet success" << std::endl;
+                        std::cout << "client connect success:" << std::endl;
+                        state_connect = STATE_CONNECT_CLIENT;
                     }
 
 
@@ -420,6 +442,10 @@ public:
         STATE_SYN, STATE_ACK
     } state_conn_p2p;
 
+    enum STATE_CONNECT {
+        STATE_CONNECT_STUN, STATE_CONNECT_CLIENT, STATE_CONNECT_CLIENT_STUN_MIDDLE
+    } state_connect = STATE_CONNECT_STUN;
+
 };
 
 class StunServer : public udp_server {
@@ -486,6 +512,7 @@ public:
         jaction.emplace("action", "request");
         boost::json::object jrequest_msg;
         boost::json::object jparameters;
+        boost::json::object jpayload;
         switch (state_connect) {
         case STATE_CONNECT_STUN:
             if(cmd == "list")
@@ -504,12 +531,12 @@ public:
                         if(i == numberPC) {
                             jparameters.emplace("IP", item.key());
                             jparameters.emplace("PORT", item.value());
-                            boost::json::object payload;
-                            payload.emplace("STATE", "SYN");
-                            jparameters.emplace("payload", payload);
+                            jpayload.emplace("STATE", "SYN");
+                            jparameters.emplace("payload", jpayload);
                         }
                         i++;
                     }
+                    jsave_parameters = jparameters;
                     jrequest_msg.emplace("parameters", jparameters);
                 } else {
                     std::cout << "PC number is required from list of connections" << std::endl;
@@ -520,7 +547,18 @@ public:
             }
             break;
         case STATE_CONNECT_CLIENT:
+            if(cmd == "PORT") {
+                if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
+                    jparameters = jsave_parameters;
+                    jpayload.emplace("PORT", jdata_array.at(0).as_string());
+                    jrequest_msg.emplace("parameters", jparameters);
 
+                } else {
+                    std::cout << "second parameter not recognized" << std::endl;
+                }
+
+            }
+            std::cout << "client state" << std::endl;
             break;
         default:
             std::cout << "STATE_CONNECT default case" << std::endl;
@@ -560,10 +598,7 @@ public:
         while (it != s.end() && std::isdigit(*it)) ++it;
         return !s.empty() && it == s.end();
     }
-
-    enum STATE_CONNECT {
-        STATE_CONNECT_STUN, STATE_CONNECT_CLIENT
-    } state_connect = STATE_CONNECT_STUN;
+    boost::json::object jsave_parameters;
 
 };
 
