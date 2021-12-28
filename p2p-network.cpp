@@ -248,8 +248,10 @@ public:
                     jaction.emplace("action", "response");
                     boost::json::object jrequest_parse = jmsg.at("data").as_object();
                     if(jrequest_parse.contains("command")) {
+
                         jresponse_msg.emplace("status", "ok");
                         boost::json::string str_req = jrequest_parse.at("command").as_string();
+
                         if(str_req == "list") {
                             boost::json::value jvalue = boost::json::parse(load_data());
                             jresponse_msg.emplace("list", jvalue.as_object());
@@ -257,6 +259,9 @@ public:
                             std::cout << "hole punching cmd" << std::endl;
                         } else if (str_req == "myip") {
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
+                        } else if (str_req == "send") {
+                            boost::json::object jparameters = jrequest_parse.at("parameters").as_object();
+                            std::cout << jparameters.at("message").as_string();
                         } else if (str_req == "relay") {
                             boost::json::object jparameters = jrequest_parse.at("parameters").as_object();
                             boost::asio::ip::udp::endpoint ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))),
@@ -502,6 +507,16 @@ public:
                 jrequest_msg["command"] = cmd;
             else if(cmd == "myip")
                 jrequest_msg["command"] = cmd;
+            else if(cmd == "send") {
+                jrequest_msg["command"] = cmd;
+                std::string message;
+                for(auto &item: jdata_array) {
+                    message.append(boost::json::value_to<std::string>(item));
+                    message.append(" ");
+                }
+                jparameters.emplace("message", message);
+                jrequest_msg.emplace("parameters", jparameters);
+            }
             else if(cmd == "connect") {
                 if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
                     jrequest_msg["command"] = "relay";
