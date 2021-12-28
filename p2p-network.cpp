@@ -485,7 +485,7 @@ public:
         remote_endpoint_ = srv_ep;
         //remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(str_remove_address), 50003);
         //start_receive();
-        connect(SIGNAL_SERVER, std::to_string(SERVER_PORT));
+        connect(srv_ep.address().to_string(), std::to_string(srv_ep.port()));
     }
 
     void send_msg() {
