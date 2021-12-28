@@ -29,6 +29,7 @@
 #define MY_MACHINE		"192.168.0.101"
 
 typedef boost::shared_ptr<boost::asio::ip::tcp::socket> socket_ptr;
+
 class Client;
 
 std::mutex 	mtx_rwfile;
@@ -270,6 +271,8 @@ public:
         std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << std::endl;
     }
 
+    virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
+
     void parser(std::string *msg) {
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
@@ -349,6 +352,13 @@ public:
                             jparameters.emplace("PORT", jdata.at("PORT"));
 
                             std::cout << "OTHER CLIENT OPENING PORT: " << jpayload.at("PORT").as_string() << std::endl;
+
+
+                            {
+                                boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
+                                                                      std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
+                                create_node(rem_ep);
+                            }
 
                             jparameters.emplace("payload", jpayload_msg);
                             jrequest.emplace("parameters", jparameters);
@@ -498,6 +508,13 @@ public:
         send_request(cmd, jdata);
     }
 
+    virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
+        boost::asio::io_service iosrv;
+        Client cln2(iosrv, rem_ep, 50055);
+        boost::thread(boost::bind(&boost::asio::io_service::run, &iosrv));
+
+    }
+
     virtual void  sock_send(boost::shared_ptr<std::string> message) override {
         socket_.async_send_to(boost::asio::buffer(*message), server_uep,
                   boost::bind(&udp_server::handle_send, this, message,
@@ -555,7 +572,9 @@ public:
                     jrequest_msg.erase("parameters");
                     jpayload = jparameters.at("payload").as_object();
                     jparameters.erase("payload");
-                    jpayload.emplace("PORT", jdata_array.at(0).as_string());
+                    jpayload.emplace("PORT", 50055);
+                    boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))), 50055);
+                    create_node(rem_ep);
                     jparameters.emplace("payload", jpayload);
                     jrequest_msg.emplace("parameters", jparameters);
 
