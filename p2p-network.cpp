@@ -483,7 +483,7 @@ public:
         //t.async_wait(boost::bind(&udp_server::send_ping, this));
         remote_endpoint_ = srv_ep;
         //remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(str_remove_address), 50003);
-        start_receive();
+        //start_receive();
         connect(SIGNAL_SERVER, std::to_string(SERVER_PORT));
     }
 
@@ -511,10 +511,9 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service iosrv;
-        std::cout << "create_node: " << rem_ep << std::endl;
         Client *cln2 = new Client(iosrv, rem_ep, 50055);
         boost::thread(boost::bind(&boost::asio::io_service::run, &iosrv));
-        boost::thread(boost::bind(&client_session, cln2));
+        boost::thread(boost::bind(&Client::start_receive, cln2));
 
     }
 
@@ -585,6 +584,8 @@ public:
                     std::cout << "second parameter not recognized" << std::endl;
                 }
 
+            } else if(cmd == "exit") {
+                state_connect = STATE_CONNECT_STUN;
             }
             std::cout << "client state" << std::endl;
             break;
@@ -658,12 +659,16 @@ int main(int argc, char *argv[]) {
 void client_session(Client *client)
 {
     try {
+        client->start_receive();
         while(true) {
             client->send_msg();
         }
     }
     catch(boost::system::error_code ec) {
         std::cout << "catch exception" << ec.message() << " " << ec.what() << std::endl;
+    }
+    catch(...) {
+        std::cout << "unknown error" << std::endl;
     }
 }
 
