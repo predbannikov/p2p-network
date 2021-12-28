@@ -151,6 +151,7 @@ boost::json::value load_json() {
 }
 
 void save_json(boost::json::object &jobj) {
+    std::lock_guard<std::mutex> lock(mtx_rwfile);
     std::ofstream file(PATH_JSON);
     if(!file.is_open()) {
         std::cerr << "could not open file to write " << PATH_JSON << std::endl;
@@ -268,7 +269,7 @@ public:
              const boost::system::error_code& /*error*/,
              std::size_t /*bytes_transferred*/)
     {
-        std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << std::endl;
+        std::cout << "data sended: " << *message << " to -> " << remote_endpoint_ << " from -> " << socket_.local_endpoint() << std::endl;
     }
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
