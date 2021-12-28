@@ -356,7 +356,7 @@ public:
 
                             {
                                 boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jdata.at("IP"))),
-                                                                      std::stoi(boost::json::value_to<std::string>(jdata.at("PORT"))));
+                                                                      std::stoi(boost::json::value_to<std::string>(jpayload.at("PORT"))));
                                 create_node(rem_ep);
                             }
 
@@ -477,6 +477,7 @@ public:
 class Client : public udp_server {
 public:
     Client(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port) : udp_server(io_service, srv_ep, port) {
+        std::cout << "start client for connection to -" << srv_ep << std::endl;
         //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
         //boost::system::error_code ec;
         //t.async_wait(boost::bind(&udp_server::send_ping, this));
