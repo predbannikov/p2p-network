@@ -510,8 +510,9 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service iosrv;
-        Client cln2(iosrv, rem_ep, 50055);
+        Client *cln2 = new Client(iosrv, rem_ep, 50055);
         boost::thread(boost::bind(&boost::asio::io_service::run, &iosrv));
+        boost::thread(boost::bind(&client_session, cln2));
 
     }
 
@@ -572,7 +573,7 @@ public:
                     jrequest_msg.erase("parameters");
                     jpayload = jparameters.at("payload").as_object();
                     jparameters.erase("payload");
-                    jpayload.emplace("PORT", 50055);
+                    jpayload.emplace("PORT", "50055");
                     boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))), 50055);
                     create_node(rem_ep);
                     jparameters.emplace("payload", jpayload);
