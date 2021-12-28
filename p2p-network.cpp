@@ -224,13 +224,13 @@ public:
              const boost::system::error_code& /*error*/,
              std::size_t /*bytes_transferred*/)
     {
-        std::cout << "data sended: " << *message << " to -> " << addr_srv << " from -> " << socket_.local_endpoint() << std::endl;
+        std::cout << "DATA SENDED: " << *message << " from -> " << socket_.local_endpoint() << " to -> " << (listener ? remote_endpoint_ : addr_srv) << std::endl;
     }
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
 
     void parser(std::string *msg) {
-        std::cout << "INCOMING DATA: " << *msg << " | from: " << remote_endpoint_<< std::endl;
+        std::cout << "INCOMING DATA: " << *msg << " to -> " << socket_.local_endpoint() << " from -> " << (listener ? remote_endpoint_ : addr_srv) << std::endl;
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
@@ -473,7 +473,7 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service *iosrv = new boost::asio::io_service();
-        Node *cln2 = new Node(*iosrv, rem_ep, 50055, true);
+        Node *cln2 = new Node(*iosrv, rem_ep, 50055, false);
         boost::thread(boost::bind(&boost::asio::io_service::run, iosrv));
         boost::thread(boost::bind(&Node::start_receive, cln2));
 
