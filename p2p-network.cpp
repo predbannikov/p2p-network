@@ -237,8 +237,8 @@ void server(unsigned short port)
 class udp_server
 {
 public:
-    udp_server(boost::asio::io_service& io_service, int port)
-        : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), t(io_service, boost::posix_time::seconds(1))
+    udp_server(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port)
+        : socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port)), addr_srv(srv_ep) , t(io_service, boost::posix_time::seconds(1))
     {
     }
 
@@ -436,7 +436,7 @@ public:
     char buff[1024];
     boost::asio::deadline_timer t;
     bool state_connection = false;
-
+    boost::asio::ip::udp::endpoint addr_srv;
 
     enum STATE_CONN_P2P {
         STATE_SYN, STATE_ACK
@@ -451,8 +451,7 @@ public:
 class StunServer : public udp_server {
 public:
     StunServer(boost::asio::io_service& io_service, int port)
-        : udp_server(io_service, port) {
-
+        : udp_server(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), port) {
         start_receive();
     }
     virtual void  sock_send(boost::shared_ptr<std::string> message) override {
@@ -467,11 +466,12 @@ public:
 
 class Client : public udp_server {
 public:
-    Client(boost::asio::io_service& io_service, int port) : udp_server(io_service, port) {
+    Client(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port) : udp_server(io_service, srv_ep, port) {
         //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
         //boost::system::error_code ec;
         //t.async_wait(boost::bind(&udp_server::send_ping, this));
-        remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
+        remote_endpoint_ = srv_ep;
+        //remote_endpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(str_remove_address), 50003);
         start_receive();
         connect(SIGNAL_SERVER, std::to_string(SERVER_PORT));
     }
@@ -536,8 +536,8 @@ public:
                         }
                         i++;
                     }
-                    jsave_parameters = jparameters;
                     jrequest_msg.emplace("parameters", jparameters);
+                    jsave_request = jrequest_msg;
                 } else {
                     std::cout << "PC number is required from list of connections" << std::endl;
                 }
@@ -547,10 +547,16 @@ public:
             }
             break;
         case STATE_CONNECT_CLIENT:
+            std::cout << "jsave_parameter: " << jsave_request << std::endl;
             if(cmd == "PORT") {
                 if(!jdata_array.empty() && is_number(boost::json::value_to<std::string>(jdata_array.at(0)))){
-                    jparameters = jsave_parameters;
+                    jrequest_msg = jsave_request;
+                    jparameters = jrequest_msg.at("parameters").as_object();
+                    jrequest_msg.erase("parameters");
+                    jpayload = jparameters.at("payload").as_object();
+                    jparameters.erase("payload");
                     jpayload.emplace("PORT", jdata_array.at(0).as_string());
+                    jparameters.emplace("payload", jpayload);
                     jrequest_msg.emplace("parameters", jparameters);
 
                 } else {
@@ -598,7 +604,7 @@ public:
         while (it != s.end() && std::isdigit(*it)) ++it;
         return !s.empty() && it == s.end();
     }
-    boost::json::object jsave_parameters;
+    boost::json::object jsave_request;
 
 };
 
@@ -616,7 +622,7 @@ int main(int argc, char *argv[]) {
             std::cout << "CLIENT MACHINE" << std::endl;
             char buff[1024];
             boost::asio::io_service service;
-            Client userv(service, 50001);
+            Client userv(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001);
             boost::thread(boost::bind(&boost::asio::io_service::run, &service));
             client_session(&userv);
 
