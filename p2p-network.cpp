@@ -20,9 +20,6 @@
 #include <thread>
 #include "raw-to.h"
 
-//using namespace boost::asio::ip;
-//using namespace boost::json;
-
 #define PATH_JSON   	"map-address"
 #define SIGNAL_SERVER   "45.128.207.31"
 #define SERVER_PORT 	50003
@@ -35,13 +32,9 @@ class Node;
 std::mutex 	mtx_rwfile;
 std::string my_ip;
 
-//boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
-boost::asio::ip::tcp::endpoint server_tep(boost::asio::ip::address::from_string(SIGNAL_SERVER), SERVER_PORT);
-
 void client_session(Node*);
 void client_session_ping(socket_ptr sock, unsigned short port, int timewait);
 void remove_machine(std::string ip_str);
-
 
 std::string get_string_myip() {
     boost::asio::io_service service;
@@ -196,44 +189,6 @@ void remove_machine(std::string ip_str) {
             return;
         }
     }
-}
- 
-void server(unsigned short port)
-{
-    std::cout << "start sync server" << std::endl;
-    enum {max_length = 1024};
-    boost::asio::io_service io_service;
-    // Создаём сокет и указываем конечной точкой  на каком порту он будет в системе
-    for (;;)
-    {
-        if(my_ip == SIGNAL_SERVER) {
-            boost::asio::ip::udp::socket sock(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 50003));
-            // Создаём конечную точку куда будем слать сообщения
-            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string("178.176.159.182"), 50001);
-            std::cout << "send_to " << tmp_ep  << std::endl;
-            // Шлё сообщения в целевую конечную точку
-            sock.send_to(boost::asio::buffer("#######", 3), tmp_ep);
-        } else {
-            char data[max_length];
-            boost::asio::ip::udp::socket sock(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 50001));
-            boost::asio::ip::udp::endpoint sender_endpoint;
-            //std::cout << "start server on: " << sock.local_endpoint() << " mustbe=" << port << std::endl;
-            boost::asio::ip::udp::endpoint tmp_ep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
-            //std::cout << "try send_to " << tmp_ep  << std::endl;
-            //boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), port);
-            //sock.bind( boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(SIGNAL_SERVER), port));
-
-            std::cout << "send_to " << tmp_ep  << std::endl;
-            sock.send_to(boost::asio::buffer("*******", 3), tmp_ep);
-
-
-            //        std::cout << "try sock.receiv" << std::endl;
-            //        size_t length = sock.receive_from(boost::asio::buffer(data, 1024), sender_endpoint);
-            //        std::cout << "data: "  << data << " " << sender_endpoint << std::endl;
-            //        sock.send_to(boost::asio::buffer(data, length), sender_endpoint);
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-   }
 }
 
 class udp_server
@@ -518,7 +473,7 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service *iosrv = new boost::asio::io_service();
-        Node *cln2 = new Node(*iosrv, rem_ep, 50055);
+        Node *cln2 = new Node(*iosrv, rem_ep, 50055, true);
         boost::thread(boost::bind(&boost::asio::io_service::run, iosrv));
         boost::thread(boost::bind(&Node::start_receive, cln2));
 
@@ -535,9 +490,6 @@ public:
                   boost::bind(&udp_server::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
-
-
-
     }
 
     void send_request(std::string &cmd, boost::json::array &jdata_array) {
