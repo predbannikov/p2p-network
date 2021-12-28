@@ -510,6 +510,7 @@ public:
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) override {
         boost::asio::io_service iosrv;
+        std::cout << "create_node: " << rem_ep << std::endl;
         Client *cln2 = new Client(iosrv, rem_ep, 50055);
         boost::thread(boost::bind(&boost::asio::io_service::run, &iosrv));
         boost::thread(boost::bind(&client_session, cln2));
