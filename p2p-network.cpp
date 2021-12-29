@@ -257,7 +257,7 @@ public:
                             boost::json::value jvalue = boost::json::parse(load_data());
                             jresponse_msg.emplace("list", jvalue.as_object());
                         } else if (str_req == "hole punching") {
-                            std::cout << "hole punching cmd" << std::endl;
+                            std::cout << "hole punching cmd " << remote_endpoint_ << std::endl;
                         } else if (str_req == "myip") {
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "send") {
