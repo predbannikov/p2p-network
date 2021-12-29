@@ -24,13 +24,13 @@ then
 		echo "apt could not be found"
 		exit
 	fi
-	apt install g++ libicu-dev
+	apt install -y g++ libicu-dev
 fi
 
 if ! command -v make &> /dev/null
 then
 	echo "make could not be found"
-	apt install make
+	apt install -y make
 fi
 
 echo "current directory $(pwd)"
@@ -38,8 +38,9 @@ echo "change directory to $HOME"
 pushd ~
 mkdir boost
 cd boost
+
 wget https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
-tar -xzf boost_1_78_0.tar.gz
+tar -xzvf boost_1_78_0.tar.gz
 cd boost_1_78_0/
 ./bootstrap.sh
 ./b2 install --prefix=/usr
