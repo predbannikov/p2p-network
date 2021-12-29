@@ -487,10 +487,16 @@ public:
     }
 
     virtual void test() override {
-        boost::json::array jarray;
-        jarray.emplace_back("TEST PACKAGE **************");
-        std::string cmd = "send";
-        send_request(cmd, jarray);
+//        boost::json::array jarray;
+//        jarray.emplace_back("TEST PACKAGE **************");
+//        std::string cmd = "send";
+        boost::shared_ptr<std::string> message(new std::string());
+        message->append("*******TEST_PACKAGE***********");
+        socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
+                  boost::bind(&udp_server::handle_send, this, message,
+                          boost::asio::placeholders::error,
+                          boost::asio::placeholders::bytes_transferred));
+
     }
 
     void send_request(std::string &cmd, boost::json::array &jdata_array) {
