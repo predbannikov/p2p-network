@@ -229,6 +229,7 @@ public:
     }
 
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
+    virtual void test() {};
 
     void parser(std::string *msg) {
         std::cout << "INCOMING DATA: " << *msg << " from -> " << (listener ? remote_endpoint_ : addr_srv) << " to -> " << socket_.local_endpoint() << std::endl;
@@ -258,6 +259,9 @@ public:
                             jresponse_msg.emplace("list", jvalue.as_object());
                         } else if (str_req == "hole punching") {
                             std::cout << "hole punching cmd " << remote_endpoint_ << std::endl;
+                            t.expires_at(t.expires_at() + boost::posix_time::seconds(1));
+                            t.async_wait(boost::bind(&udp_server::test, this));
+                            state_connection = true;
                         } else if (str_req == "myip") {
                             jresponse_msg["myip"] = std::string(remote_endpoint_.address().to_string() + ":" + std::to_string(remote_endpoint_.port()));
                         } else if (str_req == "send") {
@@ -421,7 +425,10 @@ public:
 
 class Node : public udp_server {
 public:
-    Node(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port, bool listen = true) : udp_server(io_service, srv_ep, port) {
+    /*
+     * listen == false - случай когда node и слушатель и отправитель */
+    Node(boost::asio::io_service& io_service, boost::asio::ip::udp::endpoint srv_ep, int port, bool listen = true)
+        : udp_server(io_service, srv_ep, port) {
         std::cout << "start client for connection to -" << srv_ep << std::endl;
         //t = boost::asio::deadline_timer(io_service, boost::posix_time::seconds(3));
         //boost::system::error_code ec;
@@ -477,6 +484,13 @@ public:
                   boost::bind(&udp_server::handle_send, this, message,
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
+    }
+
+    virtual void test() override {
+        boost::json::array jarray;
+        jarray.emplace_back("TEST PACKAGE **************");
+        std::string cmd = "send";
+        send_request(cmd, jarray);
     }
 
     void send_request(std::string &cmd, boost::json::array &jdata_array) {
