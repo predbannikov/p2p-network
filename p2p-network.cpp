@@ -3,6 +3,7 @@
 #include <boost/json/error.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/regex.hpp>
 #include <chrono>
 #include <iostream>
 #include <boost/filesystem.hpp>
@@ -230,7 +231,7 @@ public:
     virtual void create_node(boost::asio::ip::udp::endpoint rem_ep) {};
 
     void parser(std::string *msg) {
-        std::cout << "INCOMING DATA: " << *msg << " to -> " << socket_.local_endpoint() << " from -> " << (listener ? remote_endpoint_ : addr_srv) << std::endl;
+        std::cout << "INCOMING DATA: " << *msg << " from -> " << (listener ? remote_endpoint_ : addr_srv) << " to -> " << socket_.local_endpoint() << std::endl;
         added_new_machine(remote_endpoint_.address().to_string(), std::to_string(remote_endpoint_.port()));
         boost::shared_ptr<std::string> message(new std::string);
         auto const valid = validate(*msg);
@@ -393,7 +394,6 @@ public:
     void send_ping(std::string str_ip, std::string str_port)
     {
         boost::shared_ptr<std::string> msg(new std::string("{\"action\":\"request\",\"data\":{\"command\":\"hole punching\"}}"));
-//        boost::asio::ip::udp::endpoint server_uep(boost::asio::ip::address::from_string(SIGNAL_SERVER), 50003);
         socket_.async_send_to(boost::asio::buffer(*msg), addr_srv,
                       boost::bind(&udp_server::handle_send, this, msg,
                           boost::asio::placeholders::error,
@@ -417,22 +417,6 @@ public:
     } state_connect = STATE_CONNECT_STUN;
 
     bool listener;
-};
-
-class StunServer : public udp_server {
-public:
-    StunServer(boost::asio::io_service& io_service, int port)
-        : udp_server(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), port) {
-        start_receive();
-    }
-    virtual void  sock_send(boost::shared_ptr<std::string> message) override {
-        socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                  boost::bind(&udp_server::handle_send, this, message,
-                          boost::asio::placeholders::error,
-                          boost::asio::placeholders::bytes_transferred));
-
-
-    }
 };
 
 class Node : public udp_server {
@@ -555,7 +539,6 @@ public:
                     jparameters.erase("payload");
                     jpayload.emplace("PORT", "50055");
                     boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(boost::json::value_to<std::string>(jparameters.at("IP"))), 50055);
-                    //boost::asio::ip::udp::endpoint rem_ep(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003);
                     create_node(rem_ep);
                     jparameters.emplace("payload", jpayload);
                     jrequest_msg.emplace("parameters", jparameters);
@@ -573,7 +556,6 @@ public:
         }
         if(cmd == "node") {
             if(!jdata_array.empty()) {
-                std::cout << "RAW jdata_array: " << jdata_array << std::endl;
                 std::string cmd_node = boost::json::value_to<std::string>(jdata_array.at(0));
                 boost::json::array jdata_array_new;
                 for(int i = 1; i < jdata_array.size(); i++)
@@ -626,11 +608,22 @@ public:
 
 int main(int argc, char *argv[]) {
 
+    std::string signal_server;
+    if(argc < 2)
+        signal_server = SIGNAL_SERVER;
+    else {
+        //boost::regex e("^([1-20-90-9]|[0-90-9]|[0-9]).([1-20-90-9]|[0-90-9]|[0-9]).([1-20-90-9]|[0-90-9]|[0-9]).([1-20-90-9]|[0-90-9]|[0-9])$");
+        boost::regex e("\\d{3}");
+        boost::smatch what;
+        std::string str = std::string(argv[1]);
+        signal_server = str;
+    }
+
     std::cout << "\n*** start programm ***" << std::endl;
     std::cout << "load: " << load_json() << std::endl;
     my_ip = get_string_myip();
     try {
-        if(my_ip == SIGNAL_SERVER) {
+        if(my_ip == signal_server) {
             boost::asio::io_service io_service;
             //StunServer userv(io_service, 50003);
             Node node(io_service, boost::asio::ip::udp::endpoint(), 50003, true);
@@ -639,7 +632,7 @@ int main(int argc, char *argv[]) {
             std::cout << "CLIENT MACHINE" << std::endl;
             char buff[1024];
             boost::asio::io_service service;
-            Node node(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(SIGNAL_SERVER), 50003), 50001, false);
+            Node node(service, boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4::from_string(signal_server), 50003), 50001, false);
             boost::thread(boost::bind(&boost::asio::io_service::run, &service));
             client_session(&node);
 
