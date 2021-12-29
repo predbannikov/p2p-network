@@ -492,6 +492,7 @@ public:
 //        std::string cmd = "send";
         boost::shared_ptr<std::string> message(new std::string());
         message->append("*******TEST_PACKAGE***********");
+        addr_srv = remote_endpoint_;
         socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
                   boost::bind(&udp_server::handle_send, this, message,
                           boost::asio::placeholders::error,
