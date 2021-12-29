@@ -45,5 +45,7 @@ cd boost_1_78_0/
 ./bootstrap.sh
 ./b2 install --prefix=/usr
 popd
+make
+./p2p-network
 
 
